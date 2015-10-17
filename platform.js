@@ -52,7 +52,7 @@ Platform.prototype.notifyConnection = function (clientId, callback) {
 		};
 
 	setImmediate(function () {
-		if (!clientId || !isString(clientId)) return callback(new Error('A valid client identifier is required.'));
+		if (!clientId || !isString(clientId)) return callback(new Error('A valid client/device identifier is required.'));
 
 		process.send({
 			type: 'connection',
@@ -68,7 +68,7 @@ Platform.prototype.notifyDisconnection = function (clientId, callback) {
 		};
 
 	setImmediate(function () {
-		if (!clientId || !isString(clientId)) return callback(new Error('A valid client identifier is required.'));
+		if (!clientId || !isString(clientId)) return callback(new Error('A valid client/device identifier is required.'));
 
 		process.send({
 			type: 'disconnect',
@@ -97,7 +97,7 @@ Platform.prototype.processData = function (device, data, callback) {
 		};
 
 	setImmediate(function () {
-		if (!device || !isString(device)) return callback(new Error('A valid device id is required.'));
+		if (!device || !isString(device)) return callback(new Error('A valid client/device identifier is required.'));
 		if (!data || !isString(data)) return callback(new Error('A valid data is required.'));
 
 		process.send({

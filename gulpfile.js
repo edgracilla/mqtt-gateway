@@ -4,7 +4,7 @@ var gulp     = require('gulp'),
 	mocha    = require('gulp-mocha'),
 	plumber  = require('gulp-plumber'),
 	jshint   = require('gulp-jshint'),
-	jsonlint = require('gulp-jsonlint');
+	jsonlint = require('gulp-json-lint');
 
 var paths = {
 	js: ['*.js', '*/*.js', '*/**/*.js', '!node_modules/**'],
@@ -23,9 +23,10 @@ gulp.task('jslint', function () {
 gulp.task('jsonlint', function () {
 	return gulp.src(paths.json)
 		.pipe(plumber())
-		.pipe(jsonlint())
-		.pipe(jsonlint.reporter())
-		.pipe(jsonlint.failOnError());
+		.pipe(jsonlint({
+			comments: true
+		}))
+		.pipe(jsonlint.report());
 });
 
 gulp.task('run-tests', function () {
