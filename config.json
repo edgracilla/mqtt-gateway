@@ -1,0 +1,15 @@
+{
+  "qos": {
+	"type": "String",
+	"label": "QOS",
+	"required": true,
+	"enum": ["0", "1", "2"],
+	"help": "The QOS to be used for message exchanges."
+  },
+  "data_topic": {
+	"type": "String",
+	"label": "Data Topic",
+	"required": true,
+	"help": "The topic to listen to for device data."
+  }
+}
