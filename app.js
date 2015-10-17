@@ -42,9 +42,8 @@ platform.once('ready', function (options, registeredDevices) {
 	});
 
 	server.on('published', function (message, client) {
-		if (message.topic === options.data_topic) {
+		if (message.topic === options.data_topic)
 			platform.processData(client.id, message.payload.toString());
-		}
 	});
 
 	server.on('delivered', function (message) {
