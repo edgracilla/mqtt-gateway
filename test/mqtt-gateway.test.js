@@ -43,8 +43,7 @@ describe('Gateway', function () {
 				type: 'ready',
 				data: {
 					options: {
-						port: PORT,
-						qos: 0
+						port: PORT
 					},
 					devices: [{_id: CLIENT_ID1}, {_id: CLIENT_ID2}]
 				}
@@ -78,16 +77,16 @@ describe('Gateway', function () {
 	describe('#clients', function () {
 		it('should relay messages', function (done) {
 			mqttClient1.once('message', function (topic, message) {
-				should.equal('data', topic);
+				should.equal('reekoh/data', topic);
 				should.equal('Sample Data', message.toString());
 
-				done();
+				return done();
 			});
 
-			mqttClient1.subscribe(['data', CLIENT_ID1], function (error) {
+			mqttClient1.subscribe(['reekoh/data', CLIENT_ID1], function (error) {
 				should.ifError(error);
 
-				mqttClient2.publish('data', 'Sample Data');
+				mqttClient2.publish('reekoh/data', 'Sample Data');
 			});
 		});
 	});
@@ -98,7 +97,7 @@ describe('Gateway', function () {
 				should.equal(CLIENT_ID1, topic);
 				should.equal('Sample Command', message.toString());
 
-				done();
+				return done();
 			});
 
 			mqttGateway.send({
