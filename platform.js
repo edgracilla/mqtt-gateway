@@ -169,9 +169,7 @@ Platform.prototype.sendMessageResponse = function (messageId, response, callback
 				messageId: messageId,
 				response: response
 			}
-		});
-
-		callback();
+		}, callback);
 	});
 };
 
