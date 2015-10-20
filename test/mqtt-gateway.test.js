@@ -5,7 +5,6 @@ const PORT       = 8080,
 	  CLIENT_ID2 = '567827489028376';
 
 var cp     = require('child_process'),
-	host   = require('ip').address(),
 	mqtt   = require('mqtt'),
 	async  = require('async'),
 	should = require('should'),
