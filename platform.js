@@ -53,6 +53,10 @@ Platform.init = function () {
 			self.emit('ready', m.data.options, m.data.devices);
 		else if (m.type === 'message')
 			self.emit('message', m.data);
+		else if (m.type === 'adddevice')
+			self.emit('adddevice', m.data);
+		else if (m.type === 'removedevice')
+			self.emit('removedevice', m.data);
 	});
 };
 

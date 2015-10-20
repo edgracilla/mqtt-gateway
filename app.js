@@ -1,7 +1,7 @@
 'use strict';
 
 var platform = require('./platform'),
-	server, qos;
+	server, qos, devices;
 
 /*
  * Listen for the message event.
@@ -16,12 +16,40 @@ platform.on('message', function (message) {
 	}, function () {
 		platform.sendMessageResponse(message.messageId, 'Message Published');
 		platform.log(JSON.stringify({
-				title: 'Message Published',
-				client: message.client,
-				messageId: message.messageId,
-				message: message.message
+			title: 'Message Published',
+			client: message.client,
+			messageId: message.messageId,
+			message: message.message
 		}));
 	});
+});
+
+/*
+ * When a new device is added, add it to the list of authorized devices.
+ */
+platform.on('adddevice', function (device) {
+	var _ = require('lodash');
+
+	if (!_.isEmpty(device) && !_.isEmpty(device._id)) {
+		devices[device._id] = device;
+		platform.log('Successfully added ' + device._id + ' to the pool of authorized devices.');
+	}
+	else
+		platform.handleException(new Error('Device data invalid. Device not added. ' + device));
+});
+
+/*
+ * When a device is removed or deleted, remove it from the list of authorized devices.
+ */
+platform.on('removedevice', function (device) {
+	var _ = require('lodash');
+
+	if (!_.isEmpty(device) && !_.isEmpty(device._id)) {
+		delete devices[device._id];
+		platform.log('Successfully removed ' + device._id + ' from the pool of authorized devices.');
+	}
+	else
+		platform.handleException(new Error('Device data invalid. Device not removed. ' + device));
 });
 
 /*
@@ -34,7 +62,7 @@ platform.once('ready', function (options, registeredDevices) {
 		config = require('./config.json');
 
 	qos = (options.qos) ? parseInt(options.qos) : config.qos.default;
-	var devices = _.indexBy(registeredDevices, '_id');
+	devices = _.indexBy(_.clone(registeredDevices, true), '_id');
 
 	var dataTopic = options.data_topic || config.data_topic.default;
 	var messageTopic = options.message_topic || config.message_topic.default;
