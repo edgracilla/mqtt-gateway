@@ -1,11 +1,11 @@
 'use strict';
 
-const PORT       = 8180,
+const HOST       = '0.0.0.0',
+	  PORT       = 8080,
 	  CLIENT_ID1 = '567827489028375',
 	  CLIENT_ID2 = '567827489028376';
 
 var cp     = require('child_process'),
-	host   = require('ip').address(),
 	mqtt   = require('mqtt'),
 	async  = require('async'),
 	should = require('should'),
@@ -44,6 +44,7 @@ describe('Gateway', function () {
 				type: 'ready',
 				data: {
 					options: {
+						host: HOST,
 						port: PORT,
 						qos: '0'
 					},
@@ -57,11 +58,11 @@ describe('Gateway', function () {
 
 	describe('#connections', function () {
 		it('should accept connections', function (done) {
-			mqttClient1 = mqtt.connect('mqtt://' + host + ':' + PORT, {
+			mqttClient1 = mqtt.connect('mqtt://127.0.0.1' + ':' + PORT, {
 				clientId: CLIENT_ID1
 			});
 
-			mqttClient2 = mqtt.connect('mqtt://' + host + ':' + PORT, {
+			mqttClient2 = mqtt.connect('mqtt://127.0.0.1' + ':' + PORT, {
 				clientId: CLIENT_ID2
 			});
 
