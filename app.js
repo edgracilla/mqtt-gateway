@@ -11,7 +11,7 @@ platform.on('message', function (message) {
 		topic: message.client,
 		payload: message.message,
 		messageId: message.messageId,
-		//qos: qos,
+		qos: qos,
 		retain: false
 	}, function () {
 		platform.sendMessageResponse(message.messageId, 'Message Published');
@@ -46,7 +46,7 @@ platform.once('ready', function (options, registeredDevices) {
 	authorizedTopics = _.indexBy(_.uniq(authorizedTopics));
 
 	server = new mosca.Server({
-		host: options.host,
+		host: '0.0.0.0',
 		port: options.port
 	});
 
@@ -61,13 +61,22 @@ platform.once('ready', function (options, registeredDevices) {
 	server.on('published', function (message, client) {
 		var msg = message.payload.toString();
 
-		if (message.topic === options.data_topic)
+		if (message.topic === options.data_topic) {
 			platform.processData(client.id, msg);
+			platform.log(JSON.stringify({
+				device: client.id,
+				data: msg
+			}));
+		}
 		else if (message.topic === options.message_topic) {
 			if (isJSON(msg)) {
 				msg = JSON.parse(msg);
 
 				platform.sendMessageToDevice(msg.target, msg.message);
+				platform.log(JSON.stringify({
+					device: client.id,
+					message: msg
+				}));
 			}
 		}
 		else if (message.topic === options.groupmessage_topic) {
@@ -75,6 +84,10 @@ platform.once('ready', function (options, registeredDevices) {
 				msg = JSON.parse(msg);
 
 				platform.sendMessageToGroup(msg.target, msg.message);
+				platform.log(JSON.stringify({
+					device: client.id,
+					message: msg
+				}));
 			}
 		}
 	});
