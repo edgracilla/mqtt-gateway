@@ -1,11 +1,6 @@
 'use strict';
 
-var _        = require('lodash'),
-	host     = require('ip').address(),
-	mosca    = require('mosca'),
-	isJSON   = require('is-json'),
-	config   = require('./config.json'),
-	platform = require('./platform'),
+var platform = require('./platform'),
 	server, qos;
 
 /*
@@ -16,7 +11,7 @@ platform.on('message', function (message) {
 		topic: message.client,
 		payload: message.message,
 		messageId: message.messageId,
-		qos: qos,
+		//qos: qos,
 		retain: false
 	}, function () {
 		platform.sendMessageResponse(message.messageId, 'Message Published');
@@ -27,7 +22,13 @@ platform.on('message', function (message) {
  * Listen for the ready event.
  */
 platform.once('ready', function (options, registeredDevices) {
-	qos = parseInt(options.qos || config.qos.default);
+	var _      = require('lodash'),
+		host   = require('ip').address(),
+		mosca  = require('mosca'),
+		isJSON = require('is-json'),
+		config = require('./config.json');
+
+	qos = (options.qos) ? parseInt(options.qos) : config.qos.default;
 	var devices = _.indexBy(registeredDevices, '_id');
 
 	var dataTopic = options.data_topic || config.data_topic.default;
