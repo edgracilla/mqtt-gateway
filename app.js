@@ -46,7 +46,7 @@ platform.once('ready', function (options, registeredDevices) {
 	authorizedTopics = _.indexBy(_.uniq(authorizedTopics));
 
 	server = new mosca.Server({
-		host: '0.0.0.0',
+		host: options.host,
 		port: options.port
 	});
 
