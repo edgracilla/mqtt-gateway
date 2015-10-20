@@ -23,7 +23,6 @@ platform.on('message', function (message) {
  */
 platform.once('ready', function (options, registeredDevices) {
 	var _      = require('lodash'),
-		host   = require('ip').address(),
 		mosca  = require('mosca'),
 		isJSON = require('is-json'),
 		config = require('./config.json');
@@ -47,7 +46,7 @@ platform.once('ready', function (options, registeredDevices) {
 	authorizedTopics = _.indexBy(_.uniq(authorizedTopics));
 
 	server = new mosca.Server({
-		host: host,
+		host: '0.0.0.0',
 		port: options.port
 	});
 

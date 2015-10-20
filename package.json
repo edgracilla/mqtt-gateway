@@ -12,7 +12,6 @@
     "url": "https://github.com/Reekoh/mqtt-gateway"
   },
   "dependencies": {
-    "ip": "^1.0.1",
     "is-json": "^1.2.5",
     "lodash": "^3.10.1",
     "mosca": "^0.32.1"
