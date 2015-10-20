@@ -56,11 +56,11 @@ describe('Gateway', function () {
 
 	describe('#connections', function () {
 		it('should accept connections', function (done) {
-			mqttClient1 = mqtt.connect('mqtt://' + host + ':' + PORT, {
+			mqttClient1 = mqtt.connect('mqtt://127.0.0.1' + ':' + PORT, {
 				clientId: CLIENT_ID1
 			});
 
-			mqttClient2 = mqtt.connect('mqtt://' + host + ':' + PORT, {
+			mqttClient2 = mqtt.connect('mqtt://127.0.0.1' + ':' + PORT, {
 				clientId: CLIENT_ID2
 			});
 
