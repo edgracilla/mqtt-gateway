@@ -1,7 +1,6 @@
 'use strict';
 
-const HOST       = '0.0.0.0',
-	  PORT       = 8080,
+const PORT       = 8080,
 	  CLIENT_ID1 = '567827489028375',
 	  CLIENT_ID2 = '567827489028376';
 
@@ -44,7 +43,6 @@ describe('Gateway', function () {
 				type: 'ready',
 				data: {
 					options: {
-						host: HOST,
 						port: PORT,
 						qos: '0'
 					},
