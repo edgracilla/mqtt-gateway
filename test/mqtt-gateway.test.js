@@ -1,6 +1,6 @@
 'use strict';
 
-const PORT       = 8081,
+const PORT       = 8180,
 	  CLIENT_ID1 = '567827489028375',
 	  CLIENT_ID2 = '567827489028376';
 
@@ -17,9 +17,10 @@ describe('Gateway', function () {
 	after('terminate child process', function () {
 		this.timeout(5000);
 
+		mqttClient1.end(true);
+		mqttClient2.end(true);
+
 		setTimeout(function () {
-			mqttClient1.end(true);
-			mqttClient2.end(true);
 			mqttGateway.kill('SIGKILL');
 		}, 4500);
 	});
@@ -43,7 +44,8 @@ describe('Gateway', function () {
 				type: 'ready',
 				data: {
 					options: {
-						port: PORT
+						port: PORT,
+						qos: '0'
 					},
 					devices: [{_id: CLIENT_ID1}, {_id: CLIENT_ID2}]
 				}
