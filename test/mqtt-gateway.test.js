@@ -1,6 +1,6 @@
 'use strict';
 
-const PORT       = 8180,
+const PORT       = 8080,
 	  CLIENT_ID1 = '567827489028375',
 	  CLIENT_ID2 = '567827489028376';
 
