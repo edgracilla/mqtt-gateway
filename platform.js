@@ -116,7 +116,7 @@ Platform.prototype.notifyDisconnection = function (device, callback) {
 };
 
 /**
- * Notifies the platform that the server has closed. This will enable the platform to reboot this gateway.
+ * Notifies the platform that resources have been released and this plugin can shutdown gracefully.
  * @param {function} [callback] Optional callback to be called once the close signal has been sent.
  */
 Platform.prototype.notifyClose = function (callback) {
