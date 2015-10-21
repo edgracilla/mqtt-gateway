@@ -1,8 +1,8 @@
 'use strict';
 
 const PORT       = 8000,
-	  CLIENT_ID1 = '567827489028375',
-	  CLIENT_ID2 = '567827489028376';
+	  DEVICE_ID1 = '567827489028375',
+	  DEVICE_ID2 = '567827489028376';
 
 var cp     = require('child_process'),
 	mqtt   = require('mqtt'),
@@ -46,7 +46,7 @@ describe('Gateway', function () {
 						port: PORT,
 						qos: 0
 					},
-					devices: [{_id: CLIENT_ID1}, {_id: CLIENT_ID2}]
+					devices: [{_id: DEVICE_ID1}, {_id: DEVICE_ID2}]
 				}
 			}, function (error) {
 				should.ifError(error);
@@ -57,11 +57,11 @@ describe('Gateway', function () {
 	describe('#connections', function () {
 		it('should accept connections', function (done) {
 			mqttClient1 = mqtt.connect('mqtt://127.0.0.1' + ':' + PORT, {
-				clientId: CLIENT_ID1
+				clientId: DEVICE_ID1
 			});
 
 			mqttClient2 = mqtt.connect('mqtt://127.0.0.1' + ':' + PORT, {
-				clientId: CLIENT_ID2
+				clientId: DEVICE_ID2
 			});
 
 			async.parallel([
@@ -84,7 +84,7 @@ describe('Gateway', function () {
 				return done();
 			});
 
-			mqttClient1.subscribe(['reekoh/data', CLIENT_ID1], function (error) {
+			mqttClient1.subscribe(['reekoh/data', DEVICE_ID1], function (error) {
 				should.ifError(error);
 
 				mqttClient2.publish('reekoh/data', 'Sample Data');
@@ -95,7 +95,7 @@ describe('Gateway', function () {
 	describe('#message', function () {
 		it('should process the message and send it to the client', function (done) {
 			mqttClient1.once('message', function (topic, message) {
-				should.equal(CLIENT_ID1, topic);
+				should.equal(DEVICE_ID1, topic);
 				should.equal('Sample Command', message.toString());
 
 				return done();
@@ -104,7 +104,7 @@ describe('Gateway', function () {
 			mqttGateway.send({
 				type: 'message',
 				data: {
-					client: CLIENT_ID1,
+					device: DEVICE_ID1,
 					messageId: '55fce1455167c470abeedae2',
 					message: 'Sample Command'
 				}

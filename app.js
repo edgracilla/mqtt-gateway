@@ -1,7 +1,8 @@
 'use strict';
 
-var platform = require('./platform'),
-	devices = {},
+var mosca    = require('mosca'),
+	platform = require('./platform'),
+	devices  = {},
 	server, qos;
 
 /*
@@ -9,7 +10,7 @@ var platform = require('./platform'),
  */
 platform.on('message', function (message) {
 	server.publish({
-		topic: message.client,
+		topic: message.device,
 		payload: message.message,
 		messageId: message.messageId,
 		qos: qos,
@@ -18,7 +19,7 @@ platform.on('message', function (message) {
 		platform.sendMessageResponse(message.messageId, 'Message Published');
 		platform.log(JSON.stringify({
 			title: 'Message Published',
-			client: message.client,
+			device: message.device,
 			messageId: message.messageId,
 			message: message.message
 		}));
@@ -58,7 +59,6 @@ platform.on('removedevice', function (device) {
  */
 platform.once('ready', function (options, registeredDevices) {
 	var _      = require('lodash'),
-		mosca  = require('mosca'),
 		isJSON = require('is-json'),
 		config = require('./config.json');
 
@@ -107,6 +107,7 @@ platform.once('ready', function (options, registeredDevices) {
 		if (message.topic === options.data_topic) {
 			platform.processData(client.id, msg);
 			platform.log(JSON.stringify({
+				title: 'Data Received.',
 				device: client.id,
 				data: msg
 			}));
@@ -117,7 +118,9 @@ platform.once('ready', function (options, registeredDevices) {
 
 				platform.sendMessageToDevice(msg.target, msg.message);
 				platform.log(JSON.stringify({
-					device: client.id,
+					title: 'Message Sent.',
+					source: client.id,
+					target: msg.target,
 					message: msg
 				}));
 			}
@@ -128,7 +131,9 @@ platform.once('ready', function (options, registeredDevices) {
 
 				platform.sendMessageToGroup(msg.target, msg.message);
 				platform.log(JSON.stringify({
-					device: client.id,
+					title: 'Group Message Sent.',
+					source: client.id,
+					target: msg.target,
 					message: msg
 				}));
 			}
