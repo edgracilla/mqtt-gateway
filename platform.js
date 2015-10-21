@@ -32,6 +32,7 @@ function Platform() {
 	var self = this;
 
 	process.on('uncaughtException', function (error) {
+		self.emit('close');
 		self.handleException(error);
 		process.exit(1);
 	});
@@ -57,6 +58,8 @@ Platform.init = function () {
 			self.emit('adddevice', m.data);
 		else if (m.type === 'removedevice')
 			self.emit('removedevice', m.data);
+		else if (m.type === 'close')
+			self.emit('close');
 	});
 };
 

@@ -55,6 +55,13 @@ platform.on('removedevice', function (device) {
 });
 
 /*
+ * Event to listen to in order to gracefully release all resources bound to this service.
+ */
+platform.on('close', function () {
+	server.close();
+});
+
+/*
  * Listen for the ready event.
  */
 platform.once('ready', function (options, registeredDevices) {
@@ -89,7 +96,6 @@ platform.once('ready', function (options, registeredDevices) {
 	authorizedTopics = _.indexBy(_.uniq(authorizedTopics));
 
 	server = new mosca.Server({
-		host: '0.0.0.0',
 		port: options.port
 	});
 
@@ -142,6 +148,10 @@ platform.once('ready', function (options, registeredDevices) {
 
 	server.on('delivered', function (message) {
 		platform.sendMessageResponse(message.messageId, 'Message Acknowledged');
+	});
+
+	server.on('closed', function () {
+		platform.notifyClose();
 	});
 
 	server.on('ready', function () {
