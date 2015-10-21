@@ -32,7 +32,6 @@ function Platform() {
 	var self = this;
 
 	process.on('uncaughtException', function (error) {
-		self.emit('close');
 		self.handleException(error);
 		process.exit(1);
 	});
