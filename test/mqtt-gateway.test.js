@@ -19,6 +19,10 @@ describe('Gateway', function () {
 		mqttClient1.end(true);
 		mqttClient2.end(true);
 
+		mqttGateway.send({
+			type: 'close'
+		});
+
 		setTimeout(function () {
 			mqttGateway.kill('SIGKILL');
 		}, 4500);
