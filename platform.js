@@ -78,7 +78,7 @@ Platform.prototype.notifyReady = function (callback) {
 /**
  * Notify the platform that the device has connected to this gateway. The platform will update the device status to online.
  * @param {string} device The client or device identifier.
- * @param {function} callback Optional callback to be called once the connection signal has been sent.
+ * @param {function} [callback] Optional callback to be called once the connection signal has been sent.
  */
 Platform.prototype.notifyConnection = function (device, callback) {
 	callback = callback || function () {
@@ -97,7 +97,7 @@ Platform.prototype.notifyConnection = function (device, callback) {
 /**
  * Notify the platform that the device has disconnected from this gateway. The platform will update the device status to offline.
  * @param {string} device The client or device identifier.
- * @param {function} callback Optional callback to be called once the disconnect signal has been sent.
+ * @param {function} [callback] Optional callback to be called once the disconnect signal has been sent.
  */
 Platform.prototype.notifyDisconnection = function (device, callback) {
 	callback = callback || function () {
@@ -115,7 +115,7 @@ Platform.prototype.notifyDisconnection = function (device, callback) {
 
 /**
  * Notifies the platform that the server has closed. This will enable the platform to reboot this gateway.
- * @param {function} callback Optional callback to be called once the close signal has been sent.
+ * @param {function} [callback] Optional callback to be called once the close signal has been sent.
  */
 Platform.prototype.notifyClose = function (callback) {
 	callback = callback || function () {
@@ -181,7 +181,7 @@ Platform.prototype.sendMessageResponse = function (messageId, response, callback
  * Send a message or command to a device.
  * @param {string} device The device identifier to send the message or command to.
  * @param {string} message The message or command to be sent to the device.
- * @param {function} callback Optional callback to be called once the message has been sent.
+ * @param {function} [callback] Optional callback to be called once the message has been sent.
  */
 Platform.prototype.sendMessageToDevice = function (device, message, callback) {
 	callback = callback || function () {
@@ -205,7 +205,7 @@ Platform.prototype.sendMessageToDevice = function (device, message, callback) {
  * Send a message or command to a group of devices.
  * @param {string} group The device group name.
  * @param {string} message The message or command to send to the group of devices.
- * @param {function} callback Optional callback to be called once the message has been sent.
+ * @param {function} [callback] Optional callback to be called once the message has been sent.
  */
 Platform.prototype.sendMessageToGroup = function (group, message, callback) {
 	callback = callback || function () {
@@ -228,7 +228,7 @@ Platform.prototype.sendMessageToGroup = function (group, message, callback) {
 /**
  * Logs any data to the attached loggers in the topology.
  * @param {string} data The data that needs to be logged.
- * @param {function} callback Optional callback to be called once the data has been sent.
+ * @param {function} [callback] Optional callback to be called once the data has been sent.
  */
 Platform.prototype.log = function (data, callback) {
 	callback = callback || function () {
@@ -247,7 +247,7 @@ Platform.prototype.log = function (data, callback) {
 /**
  * Logs errors to all the attached exception handlers in the topology.
  * @param {error} error The error to be handled/logged
- * @param {function} callback Optional callback to be called once the error has been sent.
+ * @param {function} [callback] Optional callback to be called once the error has been sent.
  */
 Platform.prototype.handleException = function (error, callback) {
 	callback = callback || function () {
