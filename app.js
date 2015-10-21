@@ -1,7 +1,8 @@
 'use strict';
 
 var platform = require('./platform'),
-	server, qos, devices;
+	devices = {},
+	server, qos;
 
 /*
  * Listen for the message event.
@@ -61,8 +62,16 @@ platform.once('ready', function (options, registeredDevices) {
 		isJSON = require('is-json'),
 		config = require('./config.json');
 
-	qos = (options.qos) ? parseInt(options.qos) : config.qos.default;
-	devices = _.indexBy(_.clone(registeredDevices, true), '_id');
+	if (options.qos === 0 || _.isEmpty(options.qos))
+		qos = 0;
+	else
+		qos = parseInt(options.qos);
+
+	if (!_.isEmpty(registeredDevices)) {
+		var tmpDevices = _.clone(registeredDevices, true);
+
+		devices = _.indexBy(tmpDevices, '_id');
+	}
 
 	var dataTopic = options.data_topic || config.data_topic.default;
 	var messageTopic = options.message_topic || config.message_topic.default;

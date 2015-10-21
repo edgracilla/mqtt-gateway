@@ -1,6 +1,6 @@
 'use strict';
 
-const PORT       = 8080,
+const PORT       = 8000,
 	  CLIENT_ID1 = '567827489028375',
 	  CLIENT_ID2 = '567827489028376';
 
@@ -44,7 +44,7 @@ describe('Gateway', function () {
 				data: {
 					options: {
 						port: PORT,
-						qos: '0'
+						qos: 0
 					},
 					devices: [{_id: CLIENT_ID1}, {_id: CLIENT_ID2}]
 				}
