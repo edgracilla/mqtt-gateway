@@ -167,6 +167,7 @@ platform.once('ready', function (options, registeredDevices) {
 			return callback(null, !_.isEmpty(devices[client.id]));
 		};
 
+		platform.log('MQTT Gateway initialized on port ' + options.port);
 		platform.notifyReady();
 	});
 });
