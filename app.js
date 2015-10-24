@@ -162,6 +162,14 @@ platform.once('ready', function (options, registeredDevices) {
 		platform.notifyClose();
 	});
 
+	server.on('error', function (error) {
+		console.error('Server Error', error);
+		platform.handleException(error);
+
+		if (error.code === 'EADDRINUSE')
+			process.exit(1);
+	});
+
 	server.on('ready', function () {
 		server.authorizePublish = function (client, topic, payload, callback) {
 			return callback(null, !_.isEmpty(devices[client.id]) || topic === client.id || !_.isEmpty(authorizedTopics[topic]));
