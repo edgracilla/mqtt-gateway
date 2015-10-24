@@ -31,6 +31,10 @@ function Platform() {
 
 	var self = this;
 
+	process.on('SIGTERM', function () {
+		self.emit('close');
+	});
+
 	process.on('uncaughtException', function (error) {
 		self.handleException(error);
 		process.exit(1);
