@@ -163,11 +163,11 @@ platform.once('ready', function (options, registeredDevices) {
 	});
 
 	server.on('error', function (error) {
-		if (error.code === 'EADDRINUSE')
-			server.close();
-
 		console.error('Server Error', error);
 		platform.handleException(error);
+
+		if (error.code === 'EADDRINUSE')
+			process.exit(1);
 	});
 
 	server.on('ready', function () {
