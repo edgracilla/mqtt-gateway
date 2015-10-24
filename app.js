@@ -66,8 +66,6 @@ platform.on('close', function () {
 		console.error('Error closing MQTT Gateway on port ' + port, err);
 		platform.handleException(err);
 	}
-
-	platform.notifyClose();
 });
 
 /*
