@@ -3,7 +3,7 @@
 var mosca    = require('mosca'),
 	platform = require('./platform'),
 	devices  = {},
-	server, qos;
+	server, port, qos;
 
 /*
  * Listen for the message event.
@@ -58,7 +58,16 @@ platform.on('removedevice', function (device) {
  * Event to listen to in order to gracefully release all resources bound to this service.
  */
 platform.on('close', function () {
-	server.close();
+	try {
+		server.close();
+		console.log('MQTT Gateway closed on port ' + port);
+	}
+	catch (err) {
+		console.error('Error closing MQTT Gateway on port ' + port, err);
+		platform.handleException(err);
+	}
+
+	platform.notifyClose();
 });
 
 /*
@@ -95,8 +104,9 @@ platform.once('ready', function (options, registeredDevices) {
 	authorizedTopics = _.map(authorizedTopics, _.trim);
 	authorizedTopics = _.indexBy(_.uniq(authorizedTopics));
 
+	port = options.port;
 	server = new mosca.Server({
-		port: options.port
+		port: port
 	});
 
 	server.on('clientConnected', function (client) {
@@ -167,7 +177,8 @@ platform.once('ready', function (options, registeredDevices) {
 			return callback(null, !_.isEmpty(devices[client.id]));
 		};
 
-		platform.log('MQTT Gateway initialized on port ' + options.port);
+		console.log('MQTT Gateway initialized on port ' + port);
+		platform.log('MQTT Gateway initialized on port ' + port);
 		platform.notifyReady();
 	});
 });
