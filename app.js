@@ -118,7 +118,7 @@ platform.once('ready', function (options, registeredDevices) {
 	server.on('published', function (message, client) {
 		var msg = message.payload.toString();
 
-		if (message.topic === options.data_topic) {
+		if (message.topic === dataTopic) {
 			platform.processData(client.id, msg);
 			platform.log(JSON.stringify({
 				title: 'Data Received.',
@@ -126,7 +126,7 @@ platform.once('ready', function (options, registeredDevices) {
 				data: msg
 			}));
 		}
-		else if (message.topic === options.message_topic) {
+		else if (message.topic === messageTopic) {
 			if (isJSON(msg)) {
 				msg = JSON.parse(msg);
 
@@ -139,7 +139,7 @@ platform.once('ready', function (options, registeredDevices) {
 				}));
 			}
 		}
-		else if (message.topic === options.groupmessage_topic) {
+		else if (message.topic === groupMessageTopic) {
 			if (isJSON(msg)) {
 				msg = JSON.parse(msg);
 

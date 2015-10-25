@@ -36,8 +36,14 @@ function Platform() {
 	});
 
 	process.on('uncaughtException', function (error) {
+		console.error('Uncaught Exception', error);
 		self.handleException(error);
-		process.exit(1);
+		self.emit('close');
+
+		setTimeout(function () {
+			self.removeAllListeners();
+			process.exit(1);
+		}, 2000);
 	});
 
 	EventEmitter.call(this);
