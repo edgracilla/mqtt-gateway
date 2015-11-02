@@ -75,7 +75,10 @@ describe('Gateway', function () {
 				function (cb) {
 					mqttClient2.on('connect', cb);
 				}
-			], done);
+			], function (error) {
+				console.error(error);
+				done(error);
+			});
 		});
 	});
 
