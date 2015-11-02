@@ -29,10 +29,25 @@ var isError = function (val) {
 function Platform() {
 	if (!(this instanceof Platform)) return new Platform();
 
+	EventEmitter.call(this);
+	Platform.init.call(this);
+}
+
+inherits(Platform, EventEmitter);
+
+/**
+ * Init function for Platform.
+ */
+Platform.init = function () {
 	var self = this;
 
 	process.on('SIGTERM', function () {
 		self.emit('close');
+
+		setTimeout(function () {
+			self.removeAllListeners();
+			process.exit();
+		}, 2000);
 	});
 
 	process.on('uncaughtException', function (error) {
@@ -45,18 +60,6 @@ function Platform() {
 			process.exit(1);
 		}, 2000);
 	});
-
-	EventEmitter.call(this);
-	Platform.init.call(this);
-}
-
-inherits(Platform, EventEmitter);
-
-/**
- * Init function for Platform.
- */
-Platform.init = function () {
-	var self = this;
 
 	process.on('message', function (m) {
 		if (m.type === 'ready')
@@ -165,31 +168,6 @@ Platform.prototype.processData = function (device, data, callback) {
 };
 
 /**
- * Sends back a response to the message sent to the device through this gateway. These responses may be acknowledgement receipts that
- * come from the devices connected to this gateway.
- * @param {string} messageId The message id that was sent
- * @param response
- * @param callback
- */
-Platform.prototype.sendMessageResponse = function (messageId, response, callback) {
-	callback = callback || function () {
-		};
-
-	setImmediate(function () {
-		if (!messageId || !isString(messageId)) return callback(new Error('A valid message id is required.'));
-		if (!response || !isString(response)) return callback(new Error('A valid response is required.'));
-
-		process.send({
-			type: 'response',
-			data: {
-				messageId: messageId,
-				response: response
-			}
-		}, callback);
-	});
-};
-
-/**
  * Send a message or command to a device.
  * @param {string} device The device identifier to send the message or command to.
  * @param {string} message The message or command to be sent to the device.
@@ -232,6 +210,31 @@ Platform.prototype.sendMessageToGroup = function (group, message, callback) {
 			data: {
 				group: group,
 				message: message
+			}
+		}, callback);
+	});
+};
+
+/**
+ * Sends back a response to the message sent to the device through this gateway. These responses may be acknowledgement receipts that
+ * come from the devices connected to this gateway.
+ * @param {string} messageId The message id that was sent
+ * @param response
+ * @param callback
+ */
+Platform.prototype.sendMessageResponse = function (messageId, response, callback) {
+	callback = callback || function () {
+		};
+
+	setImmediate(function () {
+		if (!messageId || !isString(messageId)) return callback(new Error('A valid message id is required.'));
+		if (!response || !isString(response)) return callback(new Error('A valid response is required.'));
+
+		process.send({
+			type: 'response',
+			data: {
+				messageId: messageId,
+				response: response
 			}
 		}, callback);
 	});
