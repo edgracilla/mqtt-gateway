@@ -58,14 +58,20 @@ platform.on('removedevice', function (device) {
  * Event to listen to in order to gracefully release all resources bound to this service.
  */
 platform.on('close', function () {
-	try {
+	var domain = require('domain');
+	var d = domain.create();
+
+	d.on('error', function (error) {
+		console.error('Error closing MQTT Gateway on port ' + port, error);
+		platform.handleException(error);
+		platform.notifyClose();
+	});
+
+	d.run(function () {
 		server.close();
 		console.log('MQTT Gateway closed on port ' + port);
-	}
-	catch (err) {
-		console.error('Error closing MQTT Gateway on port ' + port, err);
-		platform.handleException(err);
-	}
+		platform.notifyClose();
+	});
 });
 
 /*
