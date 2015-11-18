@@ -79,7 +79,7 @@ platform.on('close', function () {
  */
 platform.once('ready', function (options, registeredDevices) {
 	var _      = require('lodash'),
-		isJSON = require('is-json'),
+		domain = require('domain'),
 		config = require('./config.json');
 
 	if (options.qos === 0 || _.isEmpty(options.qos))
@@ -133,7 +133,14 @@ platform.once('ready', function (options, registeredDevices) {
 			}));
 		}
 		else if (message.topic === messageTopic) {
-			if (isJSON(msg)) {
+			var d1 = domain.create();
+
+			d1.once('error', function () {
+				platform.log(new Error('Invalid message received. Raw Message: ' + msg));
+				d1.exit();
+			});
+
+			d1.run(function () {
 				msg = JSON.parse(msg);
 
 				platform.sendMessageToDevice(msg.target, msg.message);
@@ -143,10 +150,19 @@ platform.once('ready', function (options, registeredDevices) {
 					target: msg.target,
 					message: msg
 				}));
-			}
+
+				d1.exit();
+			});
 		}
 		else if (message.topic === groupMessageTopic) {
-			if (isJSON(msg)) {
+			var d2 = domain.create();
+
+			d2.once('error', function () {
+				platform.log(new Error('Invalid group message received. Raw Message: ' + msg));
+				d2.exit();
+			});
+
+			d2.run(function () {
 				msg = JSON.parse(msg);
 
 				platform.sendMessageToGroup(msg.target, msg.message);
@@ -156,7 +172,9 @@ platform.once('ready', function (options, registeredDevices) {
 					target: msg.target,
 					message: msg
 				}));
-			}
+
+				d2.exit();
+			});
 		}
 	});
 
@@ -189,7 +207,6 @@ platform.once('ready', function (options, registeredDevices) {
 			return callback(null, !_.isEmpty(devices[client.id]));
 		};
 
-		console.log('MQTT Gateway initialized on port ' + port);
 		platform.log('MQTT Gateway initialized on port ' + port);
 		platform.notifyReady();
 	});
