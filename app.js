@@ -65,12 +65,14 @@ platform.on('close', function () {
 		console.error('Error closing MQTT Gateway on port ' + port, error);
 		platform.handleException(error);
 		platform.notifyClose();
+		d.exit();
 	});
 
 	d.run(function () {
 		server.close();
 		console.log('MQTT Gateway closed on port ' + port);
 		platform.notifyClose();
+		d.exit();
 	});
 });
 
