@@ -1,7 +1,7 @@
 {
   "name": "mqtt-gateway",
   "description": "Standard MQTT Protocol Support for the Reekoh IoT Platform. Allows hardware devices to connect to a Reekoh instance via the MQTT Protocol.",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "author": "Reekoh, Inc.",
   "main": "app.js",
   "scripts": {
