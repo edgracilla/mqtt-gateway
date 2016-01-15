@@ -41,6 +41,15 @@ inherits(Platform, EventEmitter);
 Platform.init = function () {
 	var self = this;
 
+	process.on('SIGINT', function () {
+		self.emit('close');
+
+		setTimeout(function () {
+			self.removeAllListeners();
+			process.exit();
+		}, 2000);
+	});
+
 	process.on('SIGTERM', function () {
 		self.emit('close');
 
