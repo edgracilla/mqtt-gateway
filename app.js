@@ -8,14 +8,14 @@ var isEmpty           = require('lodash.isempty'),
 /*
  * Listen for the message event.
  */
-platform.on('message', function (message) {
+platform.on('message', (message) => {
 	server.publish({
 		topic: message.device,
 		payload: message.message,
 		messageId: message.messageId,
 		qos: qos,
 		retain: false
-	}, function () {
+	}, () => {
 		platform.sendMessageResponse(message.messageId, 'Message Published');
 		platform.log(JSON.stringify({
 			title: 'Message Published',
@@ -29,7 +29,7 @@ platform.on('message', function (message) {
 /*
  * When a new device is added, add it to the list of authorized devices.
  */
-platform.on('adddevice', function (device) {
+platform.on('adddevice', (device) => {
 	if (!isEmpty(device) && !isEmpty(device._id)) {
 		authorizedDevices[device._id] = device;
 		platform.log('Successfully added ' + device._id + ' to the pool of authorized devices.');
@@ -41,7 +41,7 @@ platform.on('adddevice', function (device) {
 /*
  * When a device is removed or deleted, remove it from the list of authorized devices.
  */
-platform.on('removedevice', function (device) {
+platform.on('removedevice', (device) => {
 	if (!isEmpty(device) && !isEmpty(device._id)) {
 		delete authorizedDevices[device._id];
 		platform.log('Successfully removed ' + device._id + ' from the pool of authorized devices.');
@@ -53,21 +53,18 @@ platform.on('removedevice', function (device) {
 /*
  * Event to listen to in order to gracefully release all resources bound to this service.
  */
-platform.on('close', function () {
-	var domain = require('domain');
-	var d = domain.create();
+platform.on('close', () => {
+	let d = require('domain').create();
 
-	d.once('error', function (error) {
+	d.once('error', (error) => {
 		console.error('Error closing MQTT Gateway on port ' + port, error);
 		platform.handleException(error);
 		platform.notifyClose();
 		d.exit();
 	});
 
-	d.run(function () {
+	d.run(() => {
 		server.close();
-		console.log('MQTT Gateway closed on port ' + port);
-		platform.notifyClose();
 		d.exit();
 	});
 });
@@ -112,34 +109,47 @@ platform.once('ready', function (options, registeredDevices) {
 		port: port
 	});
 
-	server.on('clientConnected', function (client) {
+	server.on('clientConnected', (client) => {
 		platform.notifyConnection(client.id);
 	});
 
-	server.on('clientDisconnected', function (client) {
+	server.on('clientDisconnected', (client) => {
 		platform.notifyDisconnection(client.id);
 	});
 
-	server.on('published', function (message, client) {
-		var msg = message.payload.toString();
+	server.on('published', (message, client) => {
+		let msg = message.payload.toString();
 
 		if (message.topic === dataTopic) {
-			platform.processData(client.id, msg);
-			platform.log(JSON.stringify({
-				title: 'Data Received.',
-				device: client.id,
-				data: msg
-			}));
+			var d0 = domain.create();
+
+			d0.once('error', () => {
+				platform.log(new Error('Invalid message received. Raw Message: ' + msg));
+				d0.exit();
+			});
+
+			d0.run(() => {
+				JSON.parse(msg);
+
+				platform.processData(client.id, msg);
+				platform.log(JSON.stringify({
+					title: 'Data Received.',
+					device: client.id,
+					data: msg
+				}));
+
+				d0.exit();
+			});
 		}
 		else if (message.topic === messageTopic) {
 			var d1 = domain.create();
 
-			d1.once('error', function () {
+			d1.once('error', () => {
 				platform.log(new Error('Invalid message received. Raw Message: ' + msg));
 				d1.exit();
 			});
 
-			d1.run(function () {
+			d1.run(() => {
 				msg = JSON.parse(msg);
 
 				platform.sendMessageToDevice(msg.target, msg.message);
@@ -156,12 +166,12 @@ platform.once('ready', function (options, registeredDevices) {
 		else if (message.topic === groupMessageTopic) {
 			var d2 = domain.create();
 
-			d2.once('error', function () {
+			d2.once('error', () => {
 				platform.log(new Error('Invalid group message received. Raw Message: ' + msg));
 				d2.exit();
 			});
 
-			d2.run(function () {
+			d2.run(() => {
 				msg = JSON.parse(msg);
 
 				platform.sendMessageToGroup(msg.target, msg.message);
@@ -177,15 +187,16 @@ platform.once('ready', function (options, registeredDevices) {
 		}
 	});
 
-	server.on('delivered', function (message) {
+	server.on('delivered', (message) => {
 		platform.sendMessageResponse(message.messageId, 'Message Acknowledged');
 	});
 
-	server.on('closed', function () {
+	server.on('closed', () => {
+		console.log('MQTT Gateway closed on port ' + port);
 		platform.notifyClose();
 	});
 
-	server.on('error', function (error) {
+	server.on('error', (error) => {
 		console.error('Server Error', error);
 		platform.handleException(error);
 
@@ -193,16 +204,16 @@ platform.once('ready', function (options, registeredDevices) {
 			process.exit(1);
 	});
 
-	server.on('ready', function () {
-		server.authorizePublish = function (client, topic, payload, callback) {
+	server.on('ready', () => {
+		server.authorizePublish = (client, topic, payload, callback) => {
 			return callback(null, !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]));
 		};
 
-		server.authorizeSubscribe = function (client, topic, callback) {
+		server.authorizeSubscribe = (client, topic, callback) => {
 			return callback(null, !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]));
 		};
 
-		server.authorizeForward = function (client, packet, callback) {
+		server.authorizeForward = (client, packet, callback) => {
 			return callback(null, !isEmpty(authorizedDevices[client.id]));
 		};
 
