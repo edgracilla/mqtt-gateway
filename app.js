@@ -8,7 +8,7 @@ var isEmpty           = require('lodash.isempty'),
 /*
  * Listen for the message event.
  */
-platform.on('message', (message) => {
+platform.on('message', function (message) {
 	server.publish({
 		topic: message.device,
 		payload: message.message,
@@ -29,43 +29,44 @@ platform.on('message', (message) => {
 /*
  * When a new device is added, add it to the list of authorized devices.
  */
-platform.on('adddevice', (device) => {
+platform.on('adddevice', function (device) {
 	if (!isEmpty(device) && !isEmpty(device._id)) {
 		authorizedDevices[device._id] = device;
-		platform.log('Successfully added ' + device._id + ' to the pool of authorized devices.');
+		platform.log(`Successfully added ${device._id} to the pool of authorized devices.`);
 	}
 	else
-		platform.handleException(new Error('Device data invalid. Device not added. ' + device));
+		platform.handleException(new Error(`Device data invalid. Device not added. ${device}`));
 });
 
 /*
  * When a device is removed or deleted, remove it from the list of authorized devices.
  */
-platform.on('removedevice', (device) => {
+platform.on('removedevice', function (device) {
 	if (!isEmpty(device) && !isEmpty(device._id)) {
 		delete authorizedDevices[device._id];
-		platform.log('Successfully removed ' + device._id + ' from the pool of authorized devices.');
+		platform.log(`Successfully removed ${device._id} from the pool of authorized devices.`);
 	}
 	else
-		platform.handleException(new Error('Device data invalid. Device not removed. ' + device));
+		platform.handleException(new Error(`Device data invalid. Device not removed. ${device}`));
 });
 
 /*
  * Event to listen to in order to gracefully release all resources bound to this service.
  */
-platform.on('close', () => {
+platform.on('close', function () {
 	let d = require('domain').create();
 
 	d.once('error', (error) => {
-		console.error('Error closing MQTT Gateway on port ' + port, error);
+		console.error(`Error closing MQTT Gateway on port ${port}`, error);
 		platform.handleException(error);
 		platform.notifyClose();
 		d.exit();
 	});
 
 	d.run(() => {
-		server.close();
-		d.exit();
+		server.close(() => {
+			d.exit();
+		});
 	});
 });
 
@@ -121,36 +122,49 @@ platform.once('ready', function (options, registeredDevices) {
 		let msg = message.payload.toString();
 
 		if (message.topic === dataTopic) {
-			var d0 = domain.create();
+			let d = domain.create();
 
-			d0.once('error', () => {
-				platform.log(new Error('Invalid message received. Raw Message: ' + msg));
-				d0.exit();
+			d.once('error', () => {
+				platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${msg}`));
+				d.exit();
 			});
 
-			d0.run(() => {
-				JSON.parse(msg);
+			d.run(() => {
+				let data = JSON.parse(msg);
+
+				if (isEmpty(data)) {
+					platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String.'));
+
+					return d.exit();
+				}
 
 				platform.processData(client.id, msg);
+
 				platform.log(JSON.stringify({
 					title: 'Data Received.',
 					device: client.id,
 					data: msg
 				}));
 
-				d0.exit();
+				d.exit();
 			});
 		}
 		else if (message.topic === messageTopic) {
-			var d1 = domain.create();
+			let d = domain.create();
 
-			d1.once('error', () => {
-				platform.log(new Error('Invalid message received. Raw Message: ' + msg));
-				d1.exit();
+			d.once('error', () => {
+				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+				d.exit();
 			});
 
-			d1.run(() => {
+			d.run(() => {
 				msg = JSON.parse(msg);
+
+				if (isEmpty(msg.target) || isEmpty(msg.message)) {
+					platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+
+					return d.exit();
+				}
 
 				platform.sendMessageToDevice(msg.target, msg.message);
 				platform.log(JSON.stringify({
@@ -160,21 +174,28 @@ platform.once('ready', function (options, registeredDevices) {
 					message: msg
 				}));
 
-				d1.exit();
+				d.exit();
 			});
 		}
 		else if (message.topic === groupMessageTopic) {
-			var d2 = domain.create();
+			let d = domain.create();
 
-			d2.once('error', () => {
-				platform.log(new Error('Invalid group message received. Raw Message: ' + msg));
-				d2.exit();
+			d.once('error', () => {
+				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+				d.exit();
 			});
 
-			d2.run(() => {
+			d.run(() => {
 				msg = JSON.parse(msg);
 
+				if (isEmpty(msg.target) || isEmpty(msg.message)) {
+					platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
+
+					return d.exit();
+				}
+
 				platform.sendMessageToGroup(msg.target, msg.message);
+
 				platform.log(JSON.stringify({
 					title: 'Group Message Sent.',
 					source: client.id,
@@ -182,7 +203,7 @@ platform.once('ready', function (options, registeredDevices) {
 					message: msg
 				}));
 
-				d2.exit();
+				d.exit();
 			});
 		}
 	});
@@ -192,7 +213,7 @@ platform.once('ready', function (options, registeredDevices) {
 	});
 
 	server.on('closed', () => {
-		console.log('MQTT Gateway closed on port ' + port);
+		console.log(`MQTT Gateway closed on port ${port}`);
 		platform.notifyClose();
 	});
 
@@ -217,7 +238,7 @@ platform.once('ready', function (options, registeredDevices) {
 			return callback(null, !isEmpty(authorizedDevices[client.id]));
 		};
 
-		platform.log('MQTT Gateway initialized on port ' + port);
+		platform.log(`MQTT Gateway initialized on port ${port}`);
 		platform.notifyReady();
 	});
 });
