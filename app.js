@@ -111,10 +111,12 @@ platform.once('ready', function (options, registeredDevices) {
 	});
 
 	server.on('clientConnected', (client) => {
+		platform.log(`MQTT Gateway Device Connection received. Device ID: ${client.id}`);
 		platform.notifyConnection(client.id);
 	});
 
 	server.on('clientDisconnected', (client) => {
+		platform.log(`MQTT Gateway Device Disconnection received. Device ID: ${client.id}`);
 		platform.notifyDisconnection(client.id);
 	});
 
@@ -133,7 +135,7 @@ platform.once('ready', function (options, registeredDevices) {
 				let data = JSON.parse(msg);
 
 				if (isEmpty(data)) {
-					platform.handleException(new Error('Invalid data sent. Data must be a valid JSON String.'));
+					platform.handleException(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${msg}`));
 
 					return d.exit();
 				}
@@ -227,14 +229,26 @@ platform.once('ready', function (options, registeredDevices) {
 
 	server.on('ready', () => {
 		server.authorizePublish = (client, topic, payload, callback) => {
-			return callback(null, !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]));
+			let isAuthorized = !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+
+			if(!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
+
+			return callback(null, isAuthorized);
 		};
 
 		server.authorizeSubscribe = (client, topic, callback) => {
+			let isAuthorized = !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+
+			if(!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
+
 			return callback(null, !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]));
 		};
 
 		server.authorizeForward = (client, packet, callback) => {
+			let isAuthorized = !isEmpty(authorizedDevices[client.id]);
+
+			if(!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
+
 			return callback(null, !isEmpty(authorizedDevices[client.id]));
 		};
 
