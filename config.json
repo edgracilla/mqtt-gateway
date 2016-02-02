@@ -6,6 +6,16 @@
 	"default": "0",
 	"help": "(Optional) The QOS to be used for message exchanges. Default: 0"
   },
+  "user": {
+	"type": "String",
+	"label": "Username",
+	"help": "(Optional) The username to use if you want to authenticate incoming traffic."
+  },
+  "password": {
+	"type": "Password",
+	"label": "Password",
+	"help": "(Optional) The password to use if you want to authenticate incoming traffic."
+  },
   "data_topic": {
 	"type": "String",
 	"label": "Data Topic",
