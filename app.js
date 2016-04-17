@@ -131,7 +131,7 @@ platform.once('ready', function (options, registeredDevices) {
 			], (error, data) => {
 				if (error) return platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
 
-				if (isEmpty(data)) platform.handleException(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
+				if (isEmpty(data)) return platform.handleException(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
 
 				platform.processData(client.id, rawMessage);
 
