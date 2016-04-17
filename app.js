@@ -125,24 +125,31 @@ platform.once('ready', function (options, registeredDevices) {
 
 		if (message.topic === dataTopic) {
 			async.waterfall([
-				async.constant(rawMessage),
+				async.constant(rawMessage || '{}'),
 				async.asyncify(JSON.parse)
 			], (error, data) => {
-				if (error) return platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
+				if (error || isEmpty(data)) {
+					server.publish({
+						topic: client.id,
+						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`,
+						qos: 0,
+						retain: false
+					});
 
-				if (isEmpty(data)) return platform.handleException(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
+					return platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
+				}
 
 				platform.processData(client.id, rawMessage);
 
 				server.publish({
 					topic: client.id,
 					payload: 'Data Received',
-					qos: qos,
+					qos: 0,
 					retain: false
 				});
 
 				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Data Received.',
+					title: 'MQTT Gateway - Data Received',
 					device: client.id,
 					data: data
 				}));
@@ -150,12 +157,19 @@ platform.once('ready', function (options, registeredDevices) {
 		}
 		else if (message.topic === messageTopic) {
 			async.waterfall([
-				async.constant(rawMessage),
+				async.constant(rawMessage || '{}'),
 				async.asyncify(JSON.parse)
 			], (error, msg) => {
-				if (error) return platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
+				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
+					server.publish({
+						topic: client.id,
+						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.',
+						qos: 0,
+						retain: false
+					});
 
-				if (isEmpty(msg.target) || isEmpty(msg.message)) return platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
+					return platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
+				}
 
 				platform.sendMessageToDevice(msg.target, msg.message);
 
@@ -167,7 +181,7 @@ platform.once('ready', function (options, registeredDevices) {
 				});
 
 				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Message Sent.',
+					title: 'MQTT Gateway - Message Received',
 					source: client.id,
 					target: msg.target,
 					message: msg
@@ -176,12 +190,19 @@ platform.once('ready', function (options, registeredDevices) {
 		}
 		else if (message.topic === groupMessageTopic) {
 			async.waterfall([
-				async.constant(rawMessage),
+				async.constant(rawMessage || '{}'),
 				async.asyncify(JSON.parse)
 			], (error, msg) => {
-				if (error) return platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
+				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
+					server.publish({
+						topic: client.id,
+						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.',
+						qos: 0,
+						retain: false
+					});
 
-				if (isEmpty(msg.target) || isEmpty(msg.message)) return platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
+					return platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
+				}
 
 				platform.sendMessageToGroup(msg.target, msg.message);
 
@@ -193,7 +214,7 @@ platform.once('ready', function (options, registeredDevices) {
 				});
 
 				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Group Message Sent.',
+					title: 'MQTT Gateway - Group Message Received',
 					source: client.id,
 					target: msg.target,
 					message: msg
