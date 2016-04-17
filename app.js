@@ -80,7 +80,6 @@ platform.once('ready', function (options, registeredDevices) {
 		uniq   = require('lodash.uniq'),
 		keyBy  = require('lodash.keyby'),
 		mosca  = require('mosca'),
-		domain = require('domain'),
 		config = require('./config.json');
 
 	if (options.qos === 0 || isEmpty(options.qos))
