@@ -36,33 +36,29 @@ require('util').inherits(Platform, require('events').EventEmitter);
  * Init function for Platform.
  */
 Platform.init = function () {
-	process.on('SIGINT', () => {
-		this.emit('close');
+	['SIGHUP', 'SIGINT', 'SIGTERM'].forEach((signal) => {
+		process.on(signal, () => {
+			console.log(`Exceuting ${signal} listener...`);
+			this.emit('close');
 
-		setTimeout(() => {
-			this.removeAllListeners();
-			process.exit();
-		}, 2000);
+			setTimeout(() => {
+				this.removeAllListeners();
+				process.exit();
+			}, 2000);
+		});
 	});
 
-	process.on('SIGTERM', () => {
-		this.emit('close');
+	['unhandledRejection', 'uncaughtException'].forEach((exceptionEvent) => {
+		process.on(exceptionEvent, (error) => {
+			console.error(exceptionEvent, error);
+			this.handleException(error);
+			this.emit('close');
 
-		setTimeout(() => {
-			this.removeAllListeners();
-			process.exit();
-		}, 2000);
-	});
-
-	process.on('uncaughtException', (error) => {
-		console.error('Uncaught Exception', error);
-		this.handleException(error);
-		this.emit('close');
-
-		setTimeout(() => {
-			this.removeAllListeners();
-			process.exit(1);
-		}, 2000);
+			setTimeout(() => {
+				this.removeAllListeners();
+				process.exit(1);
+			}, 2000);
+		});
 	});
 
 	process.on('message', (m) => {

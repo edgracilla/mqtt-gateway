@@ -1,6 +1,7 @@
 'use strict';
 
-var isEmpty           = require('lodash.isempty'),
+var async             = require('async'),
+	isEmpty           = require('lodash.isempty'),
 	platform          = require('./platform'),
 	authorizedDevices = {},
 	server, port, qos;
@@ -56,14 +57,14 @@ platform.on('removedevice', function (device) {
 platform.on('close', function () {
 	let d = require('domain').create();
 
-	d.once('error', (error) => {
+	d.once('error', function (error) {
 		console.error(`Error closing MQTT Gateway on port ${port}`, error);
 		platform.handleException(error);
 		platform.notifyClose();
 		d.exit();
 	});
 
-	d.run(() => {
+	d.run(function () {
 		server.close(() => {
 			d.exit();
 		});
@@ -79,7 +80,6 @@ platform.once('ready', function (options, registeredDevices) {
 		uniq   = require('lodash.uniq'),
 		keyBy  = require('lodash.keyby'),
 		mosca  = require('mosca'),
-		domain = require('domain'),
 		config = require('./config.json');
 
 	if (options.qos === 0 || isEmpty(options.qos))
@@ -121,91 +121,104 @@ platform.once('ready', function (options, registeredDevices) {
 	});
 
 	server.on('published', (message, client) => {
-		let msg = message.payload.toString();
+		let rawMessage = message.payload.toString();
 
 		if (message.topic === dataTopic) {
-			let d = domain.create();
+			async.waterfall([
+				async.constant(rawMessage || '{}'),
+				async.asyncify(JSON.parse)
+			], (error, data) => {
+				if (error || isEmpty(data)) {
+					server.publish({
+						topic: client.id,
+						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`,
+						qos: 0,
+						retain: false
+					});
 
-			d.once('error', () => {
-				platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${msg}`));
-				d.exit();
-			});
-
-			d.run(() => {
-				let data = JSON.parse(msg);
-
-				if (isEmpty(data)) {
-					platform.handleException(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${msg}`));
-
-					return d.exit();
+					return platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
 				}
 
-				platform.processData(client.id, msg);
+				platform.processData(client.id, rawMessage);
+
+				server.publish({
+					topic: client.id,
+					payload: 'Data Received',
+					qos: 0,
+					retain: false
+				});
 
 				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Data Received.',
+					title: 'MQTT Gateway - Data Received',
 					device: client.id,
-					data: msg
+					data: data
 				}));
-
-				d.exit();
 			});
 		}
 		else if (message.topic === messageTopic) {
-			let d = domain.create();
+			async.waterfall([
+				async.constant(rawMessage || '{}'),
+				async.asyncify(JSON.parse)
+			], (error, msg) => {
+				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
+					server.publish({
+						topic: client.id,
+						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.',
+						qos: 0,
+						retain: false
+					});
 
-			d.once('error', () => {
-				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-				d.exit();
-			});
-
-			d.run(() => {
-				msg = JSON.parse(msg);
-
-				if (isEmpty(msg.target) || isEmpty(msg.message)) {
-					platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-
-					return d.exit();
+					return platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
 				}
 
 				platform.sendMessageToDevice(msg.target, msg.message);
+
+				server.publish({
+					topic: client.id,
+					payload: 'Device Message Received',
+					qos: qos,
+					retain: false
+				});
+
 				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Message Sent.',
+					title: 'MQTT Gateway - Message Received',
 					source: client.id,
 					target: msg.target,
 					message: msg
 				}));
-
-				d.exit();
 			});
 		}
 		else if (message.topic === groupMessageTopic) {
-			let d = domain.create();
+			async.waterfall([
+				async.constant(rawMessage || '{}'),
+				async.asyncify(JSON.parse)
+			], (error, msg) => {
+				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
+					server.publish({
+						topic: client.id,
+						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.',
+						qos: 0,
+						retain: false
+					});
 
-			d.once('error', () => {
-				platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-				d.exit();
-			});
-
-			d.run(() => {
-				msg = JSON.parse(msg);
-
-				if (isEmpty(msg.target) || isEmpty(msg.message)) {
-					platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is the a registered Device ID. "message" is the payload.'));
-
-					return d.exit();
+					return platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
 				}
 
 				platform.sendMessageToGroup(msg.target, msg.message);
 
+				server.publish({
+					topic: client.id,
+					payload: 'Group Message Received',
+					qos: qos,
+					retain: false
+				});
+
 				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Group Message Sent.',
+					title: 'MQTT Gateway - Group Message Received',
 					source: client.id,
 					target: msg.target,
 					message: msg
 				}));
-
-				d.exit();
 			});
 		}
 	});
