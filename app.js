@@ -1,9 +1,8 @@
 'use strict';
 
-var async             = require('async'),
-	isEmpty           = require('lodash.isempty'),
-	platform          = require('./platform'),
-	authorizedDevices = {},
+var async    = require('async'),
+	isEmpty  = require('lodash.isempty'),
+	platform = require('./platform'),
 	server, port, qos;
 
 /*
@@ -25,30 +24,6 @@ platform.on('message', function (message) {
 			message: message.message
 		}));
 	});
-});
-
-/*
- * When a new device is added, add it to the list of authorized devices.
- */
-platform.on('adddevice', function (device) {
-	if (!isEmpty(device) && !isEmpty(device._id)) {
-		authorizedDevices[device._id] = device;
-		platform.log(`Successfully added ${device._id} to the pool of authorized devices.`);
-	}
-	else
-		platform.handleException(new Error(`Device data invalid. Device not added. ${device}`));
-});
-
-/*
- * When a device is removed or deleted, remove it from the list of authorized devices.
- */
-platform.on('removedevice', function (device) {
-	if (!isEmpty(device) && !isEmpty(device._id)) {
-		delete authorizedDevices[device._id];
-		platform.log(`Successfully removed ${device._id} from the pool of authorized devices.`);
-	}
-	else
-		platform.handleException(new Error(`Device data invalid. Device not removed. ${device}`));
 });
 
 /*
@@ -74,7 +49,7 @@ platform.on('close', function () {
 /*
  * Listen for the ready event.
  */
-platform.once('ready', function (options, registeredDevices) {
+platform.once('ready', function (options) {
 	var map    = require('lodash.map'),
 		trim   = require('lodash.trim'),
 		uniq   = require('lodash.uniq'),
@@ -86,9 +61,6 @@ platform.once('ready', function (options, registeredDevices) {
 		qos = 0;
 	else
 		qos = parseInt(options.qos);
-
-	if (!isEmpty(registeredDevices))
-		authorizedDevices = keyBy(registeredDevices, '_id');
 
 	var dataTopic = options.data_topic || config.data_topic.default;
 	var messageTopic = options.message_topic || config.message_topic.default;
@@ -256,27 +228,54 @@ platform.once('ready', function (options, registeredDevices) {
 		}
 
 		server.authorizePublish = (client, topic, payload, callback) => {
-			let isAuthorized = !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+			platform.requestDeviceInfo(client.id, (error, requestId) => {
+				setTimeout(() => {
+					platform.removeAllListeners(requestId);
+					callback(null, false);
+				}, 5000);
 
-			if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
+				platform.once(requestId, (deviceInfo) => {
+					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
 
-			return callback(null, isAuthorized);
+					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
+
+					return callback(null, isAuthorized);
+				});
+			});
 		};
 
 		server.authorizeSubscribe = (client, topic, callback) => {
-			let isAuthorized = !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+			platform.requestDeviceInfo(client.id, (error, requestId) => {
+				setTimeout(() => {
+					platform.removeAllListeners(requestId);
+					callback(null, false);
+				}, 5000);
 
-			if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
+				platform.once(requestId, (deviceInfo) => {
+					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
 
-			return callback(null, !isEmpty(authorizedDevices[client.id]) || topic === client.id || !isEmpty(authorizedTopics[topic]));
+					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
+
+					callback(null, isAuthorized);
+				});
+			});
 		};
 
 		server.authorizeForward = (client, packet, callback) => {
-			let isAuthorized = !isEmpty(authorizedDevices[client.id]);
+			platform.requestDeviceInfo(client.id, (error, requestId) => {
+				setTimeout(() => {
+					platform.removeAllListeners(requestId);
+					callback(null, false);
+				}, 5000);
 
-			if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
+				platform.once(requestId, (deviceInfo) => {
+					let isAuthorized = !isEmpty(deviceInfo);
 
-			return callback(null, !isEmpty(authorizedDevices[client.id]));
+					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
+
+					return callback(null, isAuthorized);
+				});
+			});
 		};
 
 		platform.log(`MQTT Gateway initialized on port ${port}`);
