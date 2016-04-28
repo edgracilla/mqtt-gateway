@@ -18,6 +18,17 @@ var isError = function (val) {
 	return (!!val && typeof val === 'object') && typeof val.message === 'string' && Object.prototype.toString.call(val) === '[object Error]';
 };
 
+var generateRequestId = function () {
+	return Array
+		.apply(0, new Array(8))
+		.map(function () {
+			return (function (charset) {
+				return charset.charAt(Math.floor(Math.random() * charset.length));
+			}('abcdefghijklmnopqrstuvwxyz0123456789'));
+		})
+		.join('');
+};
+
 /**
  * Main object used to communicate with the platform.
  * @returns {Platform}
@@ -63,15 +74,13 @@ Platform.init = function () {
 
 	process.on('message', (m) => {
 		if (m.type === 'ready')
-			this.emit('ready', m.data.options, m.data.devices);
+			this.emit('ready', m.data.options);
 		else if (m.type === 'message')
 			this.emit('message', m.data);
-		else if (m.type === 'adddevice')
-			this.emit('adddevice', m.data);
-		else if (m.type === 'removedevice')
-			this.emit('removedevice', m.data);
 		else if (m.type === 'close')
 			this.emit('close');
+		else
+			this.emit(m.type, m.data);
 	});
 };
 
@@ -135,6 +144,54 @@ Platform.prototype.notifyClose = function (callback) {
 	setImmediate(() => {
 		process.send({
 			type: 'close'
+		}, callback);
+	});
+};
+
+/**
+ * Gets the Device Information from the platform based on the Device ID passed.
+ * Returns an auto-generated Request ID or event to listen to for the device data.
+ * @param {string} device The client or device identifier.
+ * @param {function} callback(error, requestId) Callback function to be called that returns a request id to listen to for the device information. Device information includes the Device ID, Name, Metadata and State.
+ */
+Platform.prototype.requestDeviceInfo = function (device, callback) {
+	if (typeof callback !== 'function') return callback(new Error('Please specify a valid callback function.'));
+
+	let requestId = generateRequestId();
+
+	setImmediate(() => {
+		callback(null, requestId);
+	});
+
+	process.send({
+		type: 'requestdeviceinfo',
+		data: {
+			requestId: requestId,
+			deviceId: device
+		}
+	}, (error) => {
+		if (error) this.removeAllListeners(requestId);
+	});
+};
+
+/**
+ * Sets the device' state on the platform. State can be any information based on incoming data being received
+ * from the device or any other arbitrary information that needs to be stored dynamically.
+ * @param {string} device The client or device identifier.
+ * @param {any|object|string|number|date|array} state Information to store as device' state.
+ * @param {function} [callback] Optional callback to be called once the signal has been sent.
+ */
+Platform.prototype.setDeviceState = function (device, state, callback) {
+	callback = callback || function () {
+		};
+
+	setImmediate(() => {
+		process.send({
+			type: 'setdevicestate',
+			data: {
+				deviceId: device,
+				state: state
+			}
 		}, callback);
 	});
 };
