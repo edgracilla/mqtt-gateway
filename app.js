@@ -229,12 +229,14 @@ platform.once('ready', function (options) {
 
 		server.authorizePublish = (client, topic, payload, callback) => {
 			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				setTimeout(() => {
+				let t = setTimeout(() => {
 					platform.removeAllListeners(requestId);
 					callback(null, false);
 				}, 5000);
 
 				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
 					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
 
 					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
@@ -246,12 +248,14 @@ platform.once('ready', function (options) {
 
 		server.authorizeSubscribe = (client, topic, callback) => {
 			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				setTimeout(() => {
+				let t = setTimeout(() => {
 					platform.removeAllListeners(requestId);
 					callback(null, false);
 				}, 5000);
 
 				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
 					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
 
 					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
@@ -263,12 +267,14 @@ platform.once('ready', function (options) {
 
 		server.authorizeForward = (client, packet, callback) => {
 			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				setTimeout(() => {
+				let t = setTimeout(() => {
 					platform.removeAllListeners(requestId);
 					callback(null, false);
 				}, 5000);
 
 				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
 					let isAuthorized = !isEmpty(deviceInfo);
 
 					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
