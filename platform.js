@@ -18,15 +18,12 @@ var isError = function (val) {
 	return (!!val && typeof val === 'object') && typeof val.message === 'string' && Object.prototype.toString.call(val) === '[object Error]';
 };
 
+/**
+ * Utility function to generate a random String as identifier for request IDs
+ * @returns {string}
+ */
 var generateRequestId = function () {
-	return Array
-		.apply(0, new Array(8))
-		.map(function () {
-			return (function (charset) {
-				return charset.charAt(Math.floor(Math.random() * charset.length));
-			}('abcdefghijklmnopqrstuvwxyz0123456789'));
-		})
-		.join('');
+	return (Math.random()*1e64).toString(36);
 };
 
 /**

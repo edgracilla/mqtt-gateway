@@ -16,9 +16,9 @@ platform.on('message', function (message) {
 		qos: qos,
 		retain: false
 	}, () => {
-		platform.sendMessageResponse(message.messageId, 'Message Published');
+		platform.sendMessageResponse(message.messageId, 'Message Sent');
 		platform.log(JSON.stringify({
-			title: 'Message Published',
+			title: 'Message Sent',
 			device: message.device,
 			messageId: message.messageId,
 			message: message.message
@@ -207,9 +207,6 @@ platform.once('ready', function (options) {
 	server.on('error', (error) => {
 		console.error('Server Error', error);
 		platform.handleException(error);
-
-		if (error.code === 'EADDRINUSE')
-			process.exit(1);
 	});
 
 	server.on('ready', () => {
