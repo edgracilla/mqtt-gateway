@@ -115,7 +115,11 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: 'Data Received',
+					payload: JSON.stringify({
+						title: 'Data Received',
+						device: client.id,
+						data: rawMessage
+					}),
 					qos: 0,
 					retain: false
 				});
@@ -147,7 +151,11 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: 'Device Message Received',
+					payload: JSON.stringify({
+						title: 'Device Message Received',
+						device: client.id,
+						data: rawMessage
+					}),
 					qos: qos,
 					retain: false
 				});
@@ -180,7 +188,11 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: 'Group Message Received',
+					payload: JSON.stringify({
+						title: 'Group Message Received',
+						device: client.id,
+						data: rawMessage
+					}),
 					qos: qos,
 					retain: false
 				});
@@ -227,9 +239,8 @@ platform.once('ready', function (options) {
 		server.authorizePublish = (client, topic, payload, callback) => {
 			platform.requestDeviceInfo(client.id, (error, requestId) => {
 				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
 					callback(null, false);
-				}, 5000);
+				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
 					clearTimeout(t);
@@ -246,9 +257,8 @@ platform.once('ready', function (options) {
 		server.authorizeSubscribe = (client, topic, callback) => {
 			platform.requestDeviceInfo(client.id, (error, requestId) => {
 				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
 					callback(null, false);
-				}, 5000);
+				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
 					clearTimeout(t);
@@ -265,9 +275,8 @@ platform.once('ready', function (options) {
 		server.authorizeForward = (client, packet, callback) => {
 			platform.requestDeviceInfo(client.id, (error, requestId) => {
 				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
 					callback(null, false);
-				}, 5000);
+				}, 10000);
 
 				platform.once(requestId, (deviceInfo) => {
 					clearTimeout(t);

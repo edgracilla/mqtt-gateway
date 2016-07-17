@@ -152,7 +152,8 @@ Platform.prototype.notifyClose = function (callback) {
  * @param {function} callback(error, requestId) Callback function to be called that returns a request id to listen to for the device information. Device information includes the Device ID, Name, Metadata and State.
  */
 Platform.prototype.requestDeviceInfo = function (device, callback) {
-	if (typeof callback !== 'function') return callback(new Error('Please specify a valid callback function.'));
+	if (typeof callback !== 'function') return callback(new Error('Callback function must be provided.'));
+	if (!device || !isString(device)) return callback(new Error('A valid client/device identifier is required.'));
 
 	let requestId = generateRequestId();
 
@@ -167,8 +168,15 @@ Platform.prototype.requestDeviceInfo = function (device, callback) {
 			deviceId: device
 		}
 	}, (error) => {
-		if (error) this.removeAllListeners(requestId);
+		if (error) {
+			this.removeAllListeners(requestId);
+			this.handleException(new Error(`Error fetching device information for ${device}.`));
+		}
 	});
+
+	setTimeout(() => {
+		this.removeAllListeners(requestId);
+	}, 10000);
 };
 
 /**
