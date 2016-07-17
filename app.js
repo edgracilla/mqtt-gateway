@@ -3,7 +3,7 @@
 var async    = require('async'),
 	isEmpty  = require('lodash.isempty'),
 	platform = require('./platform'),
-	server, port, qos;
+	server, qos;
 
 /*
  * Listen for the message event.
@@ -33,7 +33,6 @@ platform.on('close', function () {
 	let d = require('domain').create();
 
 	d.once('error', function (error) {
-		console.error(`Error closing MQTT Gateway on port ${port}`, error);
 		platform.handleException(error);
 		platform.notifyClose();
 		d.exit();
@@ -41,6 +40,8 @@ platform.on('close', function () {
 
 	d.run(function () {
 		server.close(() => {
+			server.removeAllListeners();
+			platform.notifyClose();
 			d.exit();
 		});
 	});
@@ -77,9 +78,97 @@ platform.once('ready', function (options) {
 	authorizedTopics = map(authorizedTopics, trim);
 	authorizedTopics = keyBy(uniq(authorizedTopics));
 
-	port = options.port;
 	server = new mosca.Server({
-		port: port
+		port: options.port
+	});
+
+	server.once('error', function (error) {
+		console.error('MQTT Gateway Error', error);
+		platform.handleException(error);
+
+		setTimeout(() => {
+			server.close(() => {
+				server.removeAllListeners();
+				process.exit();
+			});
+		}, 5000);
+	});
+
+	server.once('ready', () => {
+		if (!isEmpty(options.user) && !isEmpty(options.password)) {
+			server.authenticate = (client, username, password, callback) => {
+				username = (!isEmpty(username)) ? username.toString() : '';
+				password = (!isEmpty(password)) ? password.toString() : '';
+
+				if (options.user === username && options.password === password)
+					return callback(null, true);
+				else {
+					platform.log(`MQTT Gateway - Authentication Failed on Client: ${(!isEmpty(client)) ? client.id : 'No Client ID'}.`);
+					callback(null, false);
+				}
+			};
+		}
+
+		server.authorizePublish = (client, topic, payload, callback) => {
+			platform.requestDeviceInfo(client.id, (error, requestId) => {
+				let t = setTimeout(() => {
+					callback(null, false);
+				}, 10000);
+
+				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
+					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+
+					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
+
+					return callback(null, isAuthorized);
+				});
+			});
+		};
+
+		server.authorizeSubscribe = (client, topic, callback) => {
+			platform.requestDeviceInfo(client.id, (error, requestId) => {
+				let t = setTimeout(() => {
+					callback(null, false);
+				}, 10000);
+
+				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
+					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+
+					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
+
+					callback(null, isAuthorized);
+				});
+			});
+		};
+
+		server.authorizeForward = (client, packet, callback) => {
+			platform.requestDeviceInfo(client.id, (error, requestId) => {
+				let t = setTimeout(() => {
+					callback(null, false);
+				}, 10000);
+
+				platform.once(requestId, (deviceInfo) => {
+					clearTimeout(t);
+
+					let isAuthorized = !isEmpty(deviceInfo);
+
+					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
+
+					return callback(null, isAuthorized);
+				});
+			});
+		};
+
+		platform.log(`MQTT Gateway initialized on port ${options.port}`);
+		platform.notifyReady();
+	});
+
+	server.once('closed', () => {
+		platform.log(`MQTT Gateway closed on port ${options.port}`);
 	});
 
 	server.on('clientConnected', (client) => {
@@ -103,7 +192,7 @@ platform.once('ready', function (options) {
 				if (error || isEmpty(data)) {
 					server.publish({
 						topic: client.id,
-						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`,
+						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}\n`,
 						qos: 0,
 						retain: false
 					});
@@ -115,7 +204,7 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: 'Data Received',
+					payload: `Data Received. Device ID: ${client.id}. Data: ${rawMessage}\n`,
 					qos: 0,
 					retain: false
 				});
@@ -135,7 +224,7 @@ platform.once('ready', function (options) {
 				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
 					server.publish({
 						topic: client.id,
-						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.',
+						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n',
 						qos: 0,
 						retain: false
 					});
@@ -147,7 +236,7 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: 'Device Message Received',
+					payload: `Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
 					qos: qos,
 					retain: false
 				});
@@ -168,7 +257,7 @@ platform.once('ready', function (options) {
 				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
 					server.publish({
 						topic: client.id,
-						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.',
+						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n',
 						qos: 0,
 						retain: false
 					});
@@ -180,7 +269,7 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: 'Group Message Received',
+					payload: `Group Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
 					qos: qos,
 					retain: false
 				});
@@ -193,95 +282,5 @@ platform.once('ready', function (options) {
 				}));
 			});
 		}
-	});
-
-	server.on('delivered', (message) => {
-		platform.sendMessageResponse(message.messageId, 'Message Acknowledged');
-	});
-
-	server.on('closed', () => {
-		console.log(`MQTT Gateway closed on port ${port}`);
-		platform.notifyClose();
-	});
-
-	server.on('error', (error) => {
-		console.error('Server Error', error);
-		platform.handleException(error);
-	});
-
-	server.on('ready', () => {
-		if (!isEmpty(options.user) && !isEmpty(options.password)) {
-			server.authenticate = (client, username, password, callback) => {
-				username = (!isEmpty(username)) ? username.toString() : '';
-				password = (!isEmpty(password)) ? password.toString() : '';
-
-				if (options.user === username && options.password === password)
-					return callback(null, true);
-				else {
-					platform.log(`MQTT Gateway - Authentication Failed on Client: ${(!isEmpty(client)) ? client.id : 'No Client ID'}.`);
-					callback(null, false);
-				}
-			};
-		}
-
-		server.authorizePublish = (client, topic, payload, callback) => {
-			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					callback(null, false);
-				}, 5000);
-
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
-
-					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
-
-					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
-
-					return callback(null, isAuthorized);
-				});
-			});
-		};
-
-		server.authorizeSubscribe = (client, topic, callback) => {
-			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					callback(null, false);
-				}, 5000);
-
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
-
-					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
-
-					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
-
-					callback(null, isAuthorized);
-				});
-			});
-		};
-
-		server.authorizeForward = (client, packet, callback) => {
-			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				let t = setTimeout(() => {
-					platform.removeAllListeners(requestId);
-					callback(null, false);
-				}, 5000);
-
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
-
-					let isAuthorized = !isEmpty(deviceInfo);
-
-					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
-
-					return callback(null, isAuthorized);
-				});
-			});
-		};
-
-		platform.log(`MQTT Gateway initialized on port ${port}`);
-		platform.notifyReady();
 	});
 });
