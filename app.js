@@ -103,7 +103,7 @@ platform.once('ready', function (options) {
 				if (error || isEmpty(data)) {
 					server.publish({
 						topic: client.id,
-						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`,
+						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}\n`,
 						qos: 0,
 						retain: false
 					});
@@ -115,11 +115,7 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: JSON.stringify({
-						title: 'Data Received',
-						device: client.id,
-						data: rawMessage
-					}),
+					payload: `Data Received. Device ID: ${client.id}. Data: ${rawMessage}\n`,
 					qos: 0,
 					retain: false
 				});
@@ -139,7 +135,7 @@ platform.once('ready', function (options) {
 				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
 					server.publish({
 						topic: client.id,
-						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.',
+						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n',
 						qos: 0,
 						retain: false
 					});
@@ -151,11 +147,7 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: JSON.stringify({
-						title: 'Device Message Received',
-						device: client.id,
-						data: rawMessage
-					}),
+					payload: `Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
 					qos: qos,
 					retain: false
 				});
@@ -176,7 +168,7 @@ platform.once('ready', function (options) {
 				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
 					server.publish({
 						topic: client.id,
-						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.',
+						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n',
 						qos: 0,
 						retain: false
 					});
@@ -188,11 +180,7 @@ platform.once('ready', function (options) {
 
 				server.publish({
 					topic: client.id,
-					payload: JSON.stringify({
-						title: 'Group Message Received',
-						device: client.id,
-						data: rawMessage
-					}),
+					payload: `Group Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
 					qos: qos,
 					retain: false
 				});
