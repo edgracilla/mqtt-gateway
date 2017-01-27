@@ -23,7 +23,7 @@ var isError = function (val) {
  * @returns {string}
  */
 var generateRequestId = function () {
-	return (Math.random()*1e64).toString(36);
+	return (Math.random() * 1e64).toString(36);
 };
 
 /**
@@ -157,22 +157,24 @@ Platform.prototype.requestDeviceInfo = function (device, callback) {
 
 	let requestId = generateRequestId();
 
-	setImmediate(() => {
+	process.nextTick(function () {
 		callback(null, requestId);
 	});
 
-	process.send({
-		type: 'requestdeviceinfo',
-		data: {
-			requestId: requestId,
-			deviceId: device
-		}
-	}, (error) => {
-		if (error) {
-			this.removeAllListeners(requestId);
-			this.handleException(new Error(`Error fetching device information for ${device}.`));
-		}
-	});
+	setTimeout(() => {
+		process.send({
+			type: 'requestdeviceinfo',
+			data: {
+				requestId: requestId,
+				deviceId: device
+			}
+		}, (error) => {
+			if (error) {
+				this.removeAllListeners(requestId);
+				this.handleException(new Error(`Error fetching device information for ${device}.`));
+			}
+		});
+	}, 10);
 
 	setTimeout(() => {
 		this.removeAllListeners(requestId);
