@@ -62,7 +62,9 @@ plugin.once('ready', () => {
         username = (!isEmpty(username)) ? username.toString() : ''
         password = (!isEmpty(password)) ? password.toString() : ''
 
-        if (options.user === username && options.password === password)					{ return callback(null, true) } else {
+        if (options.user === username && options.password === password) {
+          return callback(null, true)
+        } else {
           plugin.log(`MQTT Gateway - Authentication Failed on Client: ${(!isEmpty(client)) ? client.id : 'No Client ID'}.`)
           callback(null, false)
         }
@@ -151,12 +153,10 @@ plugin.once('ready', () => {
     let rawMessage = message.payload.toString()
 
     if (message.topic === dataTopic) {
-
       async.waterfall([
         async.constant(rawMessage || '{}'),
         async.asyncify(JSON.parse)
       ], (error, data) => {
-
         if (error || isEmpty(data)) {
           server.publish({
             topic: client.id,
@@ -169,7 +169,6 @@ plugin.once('ready', () => {
         }
 
         plugin.pipe(data).then(() => {
-
           server.publish({
             topic: client.id,
             payload: `Data Received. Device ID: ${client.id}. Data: ${rawMessage}\n`,
@@ -182,14 +181,12 @@ plugin.once('ready', () => {
             device: client.id,
             data: data
           }))
-
         }).catch((err) => {
           console.log(err)
           plugin.logException(err)
         })
       })
     } else if (message.topic === commandTopic) {
-
       async.waterfall([
         async.constant(rawMessage || '{}'),
         async.asyncify(JSON.parse)

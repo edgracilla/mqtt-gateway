@@ -52,6 +52,7 @@ describe('MQTT Gateway', () => {
   })
 
   after('terminate', function () {
+    _conn.close()
     mqttClient1.end(true)
     mqttClient2.end(true)
 
@@ -141,12 +142,10 @@ describe('MQTT Gateway', () => {
         should.ifError(error)
         mqttClient2.publish('reekoh/data', '{"foo":"bar"}')
       })
-
     })
   })
 
   describe('#command', function () {
-
     it('should create commandRelay listener', function (done) {
       this.timeout(10000)
 
@@ -199,7 +198,6 @@ describe('MQTT Gateway', () => {
     })
 
     it('should process the command and send it to the client', function (done) {
-
       mqttClient2.subscribe([DEVICE_ID1])
 
       mqttClient2.once('message', (topic, msg) => {
