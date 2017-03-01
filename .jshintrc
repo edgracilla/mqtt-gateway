@@ -17,18 +17,19 @@
   "trailing": true, // Prohibit trailing whitespaces.
   "smarttabs": false, // Suppresses warnings about mixed tabs and spaces
   "predef": [ // Extra globals.
-	"define",
-	"require",
-	"exports",
-	"module",
-	"describe",
-	"it",
-	"before",
-	"after",
-	"beforeEach",
-	"afterEach"
+    "define",
+    "require",
+    "exports",
+    "module",
+    "describe",
+    "it",
+    "before",
+    "after",
+    "beforeEach",
+    "afterEach"
   ],
-  "indent": 4, // Specify indentation spacing
+  "indent": 2, // Specify indentation spacing
   "devel": true, // Allow development statements e.g. `console.log();`.
-  "noempty": true // Prohibit use of empty blocks.
+  "noempty": true, // Prohibit use of empty blocks.
+  "asi": true // suppresses warnings about missing semicolons
 }

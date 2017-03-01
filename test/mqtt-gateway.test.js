@@ -1,130 +1,225 @@
-'use strict';
+/* global describe, it, after, before */
+'use strict'
 
-const PORT       = 8000,
-	  DEVICE_ID1 = '567827489028375',
-	  DEVICE_ID2 = '567827489028376';
+const mqtt = require('mqtt')
+const async = require('async')
+const amqp = require('amqplib')
+const should = require('should')
+const isEmpty = require('lodash.isempty')
 
-var cp     = require('child_process'),
-	mqtt   = require('mqtt'),
-	async  = require('async'),
-	should = require('should'),
-	mqttGateway, mqttClient1, mqttClient2;
+const Broker = require('../node_modules/reekoh/lib/broker.lib')
 
-describe('Gateway', function () {
-	this.slow(5000);
+const PORT = 8182
+const PLUGIN_ID = 'demo.gateway'
+const BROKER = 'amqp://guest:guest@127.0.0.1/'
+const OUTPUT_PIPES = 'demo.outpipe1,demo.outpipe2'
+const COMMAND_RELAYS = 'demo.relay1,demo.relay2'
 
-	after('terminate child process', function () {
-		this.timeout(5000);
+const DEVICE_ID1 = '567827489028375'
+const DEVICE_ID2 = '567827489028376'
 
-		mqttClient1.end(true);
-		mqttClient2.end(true);
+let conf = {
+  qos: 0,
+  port: PORT
+}
 
-		mqttGateway.send({
-			type: 'close'
-		});
+let _app = null
+let _conn = null
+let _broker = null
+let _channel = null
 
-		setTimeout(function () {
-			mqttGateway.kill('SIGKILL');
-		}, 4500);
-	});
+let mqttClient1 = null
+let mqttClient2 = null
 
-	describe('#spawn', function () {
-		it('should spawn a child process', function () {
-			should.ok(mqttGateway = cp.fork(process.cwd()), 'Child process not spawned.');
-		});
-	});
+describe('MQTT Gateway', () => {
+  before('init', function () {
+    process.env.BROKER = BROKER
+    process.env.PLUGIN_ID = PLUGIN_ID
+    process.env.OUTPUT_PIPES = OUTPUT_PIPES
+    process.env.COMMAND_RELAYS = COMMAND_RELAYS
+    process.env.CONFIG = JSON.stringify(conf)
 
-	describe('#handShake', function () {
-		it('should notify the parent process when ready within 5 seconds', function (done) {
-			this.timeout(5000);
+    _broker = new Broker()
 
-			mqttGateway.on('message', function (message) {
-				if (message.type === 'ready')
-					done();
-				else if (message.type === 'requestdeviceinfo') {
-					if (message.data.deviceId === DEVICE_ID1 || message.data.deviceId === DEVICE_ID2) {
-						mqttGateway.send({
-							type: message.data.requestId,
-							data: {
-								_id: message.data.deviceId
-							}
-						});
-					}
-				}
-			});
+    amqp.connect(BROKER).then((conn) => {
+      _conn = conn
+      return conn.createChannel()
+    }).then((channel) => {
+      _channel = channel
+    }).catch((err) => {
+      console.log(err)
+    })
+  })
 
-			mqttGateway.send({
-				type: 'ready',
-				data: {
-					options: {
-						port: PORT,
-						qos: 0
-					},
-					devices: [{_id: DEVICE_ID1}, {_id: DEVICE_ID2}]
-				}
-			}, function (error) {
-				should.ifError(error);
-			});
-		});
-	});
+  after('terminate', function () {
+    mqttClient1.end(true)
+    mqttClient2.end(true)
 
-	describe('#connections', function () {
-		it('should accept connections', function (done) {
-			mqttClient1 = mqtt.connect('mqtt://localhost' + ':' + PORT, {
-				clientId: DEVICE_ID1
-			});
+    setTimeout(function () {
+      _app.kill('SIGKILL')
+    }, 4500)
+  })
 
-			mqttClient2 = mqtt.connect('mqtt://localhost' + ':' + PORT, {
-				clientId: DEVICE_ID2
-			});
+  describe('#start', function () {
+    it('should start the app', function (done) {
+      this.timeout(10000)
+      _app = require('../app')
+      _app.once('init', done)
+    })
+  })
 
-			async.parallel([
-				function (cb) {
-					mqttClient1.on('connect', cb);
-				},
-				function (cb) {
-					mqttClient2.on('connect', cb);
-				}
-			], function () {
-				done();
-			});
-		});
-	});
+  describe('#connections', function () {
+    it('should accept connections', function (done) {
+      mqttClient1 = mqtt.connect('mqtt://localhost' + ':' + PORT, {
+        clientId: DEVICE_ID1
+      })
 
-	describe('#clients', function () {
-		it('should relay messages', function (done) {
-			mqttClient1.once('message', function (topic, message) {
-				should.equal('reekoh/data', topic);
-				should.equal('Sample Data', message.toString());
+      mqttClient2 = mqtt.connect('mqtt://localhost' + ':' + PORT, {
+        clientId: DEVICE_ID2
+      })
 
-				return done();
-			});
+      async.parallel([
+        function (cb) {
+          mqttClient1.on('connect', cb)
+        },
+        function (cb) {
+          mqttClient2.on('connect', cb)
+        }
+      ], function () {
+        done()
+      })
+    })
+  })
 
-			mqttClient1.subscribe(['reekoh/data', DEVICE_ID1], function (error) {
-				should.ifError(error);
+  describe('#test RPC preparation', () => {
+    it('should connect to broker', (done) => {
+      _broker.connect(BROKER).then(() => {
+        return done() || null
+      }).catch((err) => {
+        done(err)
+      })
+    })
 
-				mqttClient2.publish('reekoh/data', 'Sample Data');
-			});
-		});
-	});
+    it('should spawn temporary RPC server', (done) => {
+      // if request arrives this proc will be called
+      let sampleServerProcedure = (msg) => {
+        return new Promise((resolve, reject) => {
+          async.waterfall([
+            async.constant(msg.content.toString('utf8')),
+            async.asyncify(JSON.parse)
+          ], (err, parsed) => {
+            if (err) return reject(err)
+            parsed.foo = 'bar'
+            resolve(JSON.stringify(parsed))
+          })
+        })
+      }
 
-	describe('#message', function () {
-		it('should process the message and send it to the client', function (done) {
-			mqttClient1.once('message', function (topic, message) {
-				should.equal(DEVICE_ID1, topic);
-				should.equal('Sample Command', message.toString());
+      _broker.createRPC('server', 'deviceinfo').then((queue) => {
+        return queue.serverConsume(sampleServerProcedure)
+      }).then(() => {
+        // Awaiting RPC requests
+        done()
+      }).catch((err) => {
+        done(err)
+      })
+    })
+  })
 
-				return done();
-			});
+  describe('#clients', function () {
+    it('should relay messages', function (done) {
+      this.timeout(10000)
 
-			mqttGateway.send({
-				type: 'message',
-				data: {
-					device: DEVICE_ID1,
-					messageId: '55fce1455167c470abeedae2',
-					message: 'Sample Command'
-				}
-			});
-		});
-	});
-});
+      mqttClient2.subscribe([DEVICE_ID2])
+
+      mqttClient2.once('message', (topic, msg) => {
+        should.ok(msg.toString().startsWith('Data Received.'))
+        done()
+      })
+
+      mqttClient1.subscribe(['reekoh/data'], function (error) {
+        should.ifError(error)
+        mqttClient2.publish('reekoh/data', '{"foo":"bar"}')
+      })
+
+    })
+  })
+
+  describe('#command', function () {
+
+    it('should create commandRelay listener', function (done) {
+      this.timeout(10000)
+
+      let cmdRelays = `${COMMAND_RELAYS || ''}`.split(',').filter(Boolean)
+
+      async.each(cmdRelays, (cmdRelay, cb) => {
+        _channel.consume(cmdRelay, (msg) => {
+          if (!isEmpty(msg)) {
+            async.waterfall([
+              async.constant(msg.content.toString('utf8') || '{}'),
+              async.asyncify(JSON.parse)
+            ], (err, obj) => {
+              if (err) return console.log('parse json err. supplied invalid data')
+
+              let devices = []
+
+              if (Array.isArray(obj.devices)) {
+                devices = obj.devices
+              } else {
+                devices.push(obj.devices)
+              }
+
+              if (obj.deviceGroup) {
+                // get devices from platform agent
+                // then push to devices[]
+              }
+
+              async.each(devices, (device, cb) => {
+                _channel.publish('amq.topic', `${cmdRelay}.topic`, new Buffer(JSON.stringify({
+                  sequenceId: obj.sequenceId,
+                  commandId: new Date().getTime().toString(), // uniq
+                  command: obj.command,
+                  device: device
+                })))
+                cb()
+              }, (err) => {
+                should.ifError(err)
+              })
+            })
+
+            // _channel.publish('amq.topic', `${cmdRelay}.topic`, new Buffer(msg.content.toString('utf8')))
+          }
+          _channel.ack(msg)
+        }).then(() => {
+          return cb()
+        }).catch((err) => {
+          should.ifError(err)
+        })
+      }, done)
+    })
+
+    it('should process the command and send it to the client', function (done) {
+
+      mqttClient2.subscribe([DEVICE_ID1])
+
+      mqttClient2.once('message', (topic, msg) => {
+        should.ok(msg.toString().startsWith('Message Received.'))
+        done()
+      })
+
+      mqttClient1.subscribe(['reekoh/commands'], function (error) {
+        should.ifError(error)
+        mqttClient2.publish('reekoh/commands', JSON.stringify({
+          device: DEVICE_ID1,
+          deviceGroup: '',
+          command: 'DEACTIVATE'
+        }))
+      })
+    })
+
+    it('should be able to recieve command response', function (done) {
+      this.timeout(5000)
+      _app.once('response.ok', done)
+    })
+  })
+})

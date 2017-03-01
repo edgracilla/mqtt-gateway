@@ -1,286 +1,254 @@
-'use strict';
+'use strict'
 
-var async    = require('async'),
-	isEmpty  = require('lodash.isempty'),
-	platform = require('./platform'),
-	server, qos;
+const reekoh = require('reekoh')
+const plugin = new reekoh.plugins.Gateway()
 
-/*
- * Listen for the message event.
- */
-platform.on('message', function (message) {
-	server.publish({
-		topic: message.device,
-		payload: message.message,
-		messageId: message.messageId,
-		qos: qos,
-		retain: false
-	}, () => {
-		platform.sendMessageResponse(message.messageId, 'Message Sent');
-		platform.log(JSON.stringify({
-			title: 'Message Sent',
-			device: message.device,
-			messageId: message.messageId,
-			message: message.message
-		}));
-	});
-});
+const async = require('async')
+const isEmpty = require('lodash.isempty')
 
-/*
- * Event to listen to in order to gracefully release all resources bound to this service.
- */
-platform.on('close', function () {
-	let d = require('domain').create();
+let qos = null
+let server = null
 
-	d.once('error', function (error) {
-		platform.handleException(error);
-		platform.notifyClose();
-		d.exit();
-	});
+plugin.once('ready', () => {
+  let map = require('lodash.map')
+  let trim = require('lodash.trim')
+  let uniq = require('lodash.uniq')
+  let keyBy = require('lodash.keyby')
+  let mosca = require('mosca')
+  let config = require('./config.json')
 
-	d.run(function () {
-		server.close(() => {
-			server.removeAllListeners();
-			platform.notifyClose();
-			d.exit();
-		});
-	});
-});
+  let options = plugin.config
 
-/*
- * Listen for the ready event.
- */
-platform.once('ready', function (options) {
-	var map    = require('lodash.map'),
-		trim   = require('lodash.trim'),
-		uniq   = require('lodash.uniq'),
-		keyBy  = require('lodash.keyby'),
-		mosca  = require('mosca'),
-		config = require('./config.json');
+  if (options.qos === 0 || isEmpty(options.qos)) {
+    qos = 0
+  } else {
+    qos = parseInt(options.qos)
+  }
 
-	if (options.qos === 0 || isEmpty(options.qos))
-		qos = 0;
-	else
-		qos = parseInt(options.qos);
+  let dataTopic = options.dataTopic || config.dataTopic.default
+  let commandTopic = options.commandTopic || config.commandTopic.default
 
-	var dataTopic = options.data_topic || config.data_topic.default;
-	var messageTopic = options.message_topic || config.message_topic.default;
-	var groupMessageTopic = options.groupmessage_topic || config.groupmessage_topic.default;
+  let tmpTopics = [dataTopic, commandTopic]
+  let authorizedTopics = options.authorizedTopics
 
-	var tmpTopics = [dataTopic, messageTopic, groupMessageTopic];
-	var authorizedTopics = options.authorized_topics;
+  if (!isEmpty(authorizedTopics)) {
+    authorizedTopics = tmpTopics.concat(authorizedTopics.split(','))
+  } else {
+    authorizedTopics = tmpTopics
+  }
 
-	if (!isEmpty(authorizedTopics))
-		authorizedTopics = tmpTopics.concat(authorizedTopics.split(','));
-	else
-		authorizedTopics = tmpTopics;
+  authorizedTopics = map(authorizedTopics, trim)
+  authorizedTopics = keyBy(uniq(authorizedTopics))
 
-	authorizedTopics = map(authorizedTopics, trim);
-	authorizedTopics = keyBy(uniq(authorizedTopics));
+  server = new mosca.Server({
+    port: options.port
+  })
 
-	server = new mosca.Server({
-		port: options.port
-	});
+  server.once('error', function (error) {
+    console.error('MQTT Gateway Error', error)
+    plugin.logException(error)
 
-	server.once('error', function (error) {
-		console.error('MQTT Gateway Error', error);
-		platform.handleException(error);
+    setTimeout(() => {
+      server.close(() => {
+        server.removeAllListeners()
+        process.exit()
+      })
+    }, 5000)
+  })
 
-		setTimeout(() => {
-			server.close(() => {
-				server.removeAllListeners();
-				process.exit();
-			});
-		}, 5000);
-	});
+  server.once('ready', () => {
+    if (!isEmpty(options.user) && !isEmpty(options.password)) {
+      server.authenticate = (client, username, password, callback) => {
+        username = (!isEmpty(username)) ? username.toString() : ''
+        password = (!isEmpty(password)) ? password.toString() : ''
 
-	server.once('ready', () => {
-		if (!isEmpty(options.user) && !isEmpty(options.password)) {
-			server.authenticate = (client, username, password, callback) => {
-				username = (!isEmpty(username)) ? username.toString() : '';
-				password = (!isEmpty(password)) ? password.toString() : '';
+        if (options.user === username && options.password === password)					{ return callback(null, true) } else {
+          plugin.log(`MQTT Gateway - Authentication Failed on Client: ${(!isEmpty(client)) ? client.id : 'No Client ID'}.`)
+          callback(null, false)
+        }
+      }
+    }
 
-				if (options.user === username && options.password === password)
-					return callback(null, true);
-				else {
-					platform.log(`MQTT Gateway - Authentication Failed on Client: ${(!isEmpty(client)) ? client.id : 'No Client ID'}.`);
-					callback(null, false);
-				}
-			};
-		}
+    server.authorizePublish = (client, topic, payload, callback) => {
+      plugin.requestDeviceInfo(client.id).then((deviceInfo) => {
+        let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic])
 
-		server.authorizePublish = (client, topic, payload, callback) => {
-			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				let t = setTimeout(() => {
-					callback(null, false);
-				}, 10000);
+        if (!isAuthorized) {
+          return plugin.logException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`))
+            .then(() => callback(null, false))
+        }
 
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
+        return callback(null, isAuthorized) || null
+      }).catch((err) => {
+        console.log(err)
+        plugin.logException(err)
 
-					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+        if (err.message === 'Request for device information has timed out.') {
+          callback(null, false)
+        }
+      })
+    }
 
-					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to publish to topic ${topic}. Device not registered.`));
+    server.authorizeSubscribe = (client, topic, callback) => {
+      plugin.requestDeviceInfo(client.id).then((deviceInfo) => {
+        let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic])
 
-					return callback(null, isAuthorized);
-				});
-			});
-		};
+        if (!isAuthorized) {
+          return plugin.logException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`))
+            .then(() => callback(null, false))
+        }
 
-		server.authorizeSubscribe = (client, topic, callback) => {
-			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				let t = setTimeout(() => {
-					callback(null, false);
-				}, 10000);
+        return callback(null, isAuthorized) || null
+      }).catch((err) => {
+        console.log(err)
+        plugin.logException(err)
 
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
+        if (err.message === 'Request for device information has timed out.') {
+          callback(null, false)
+        }
+      })
+    }
 
-					let isAuthorized = !isEmpty(deviceInfo) || topic === client.id || !isEmpty(authorizedTopics[topic]);
+    server.authorizeForward = (client, packet, callback) => {
+      plugin.requestDeviceInfo(client.id).then((deviceInfo) => {
+        let isAuthorized = !isEmpty(deviceInfo)
 
-					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to subscribe to topic ${topic}. Device not registered.`));
+        if (!isAuthorized) {
+          return plugin.logException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`))
+            .then(() => callback(null, false))
+        }
 
-					callback(null, isAuthorized);
-				});
-			});
-		};
+        return callback(null, isAuthorized) || null
+      }).catch((err) => {
+        console.log(err)
+        plugin.logException(err)
 
-		server.authorizeForward = (client, packet, callback) => {
-			platform.requestDeviceInfo(client.id, (error, requestId) => {
-				let t = setTimeout(() => {
-					callback(null, false);
-				}, 10000);
+        if (err.message === 'Request for device information has timed out.') {
+          callback(null, false)
+        }
+      })
+    }
 
-				platform.once(requestId, (deviceInfo) => {
-					clearTimeout(t);
+    plugin.log(`MQTT Gateway initialized on port ${options.port}`)
+    plugin.emit('init')
+  })
 
-					let isAuthorized = !isEmpty(deviceInfo);
+  server.once('closed', () => {
+    plugin.log(`MQTT Gateway closed on port ${options.port}`)
+  })
 
-					if (!isAuthorized) platform.handleException(new Error(`Device ${client.id} is not authorized to forward messages. Device not registered.`));
+  server.on('clientConnected', (client) => {
+    plugin.log(`MQTT Gateway Device Connection received. Device ID: ${client.id}`)
+    plugin.notifyConnection(client.id)
+  })
 
-					return callback(null, isAuthorized);
-				});
-			});
-		};
+  server.on('clientDisconnected', (client) => {
+    plugin.log(`MQTT Gateway Device Disconnection received. Device ID: ${client.id}`)
+    plugin.notifyDisconnection(client.id)
+  })
 
-		platform.log(`MQTT Gateway initialized on port ${options.port}`);
-		platform.notifyReady();
-	});
+  server.on('published', (message, client) => {
+    let rawMessage = message.payload.toString()
 
-	server.once('closed', () => {
-		platform.log(`MQTT Gateway closed on port ${options.port}`);
-	});
+    if (message.topic === dataTopic) {
 
-	server.on('clientConnected', (client) => {
-		platform.log(`MQTT Gateway Device Connection received. Device ID: ${client.id}`);
-		platform.notifyConnection(client.id);
-	});
+      async.waterfall([
+        async.constant(rawMessage || '{}'),
+        async.asyncify(JSON.parse)
+      ], (error, data) => {
 
-	server.on('clientDisconnected', (client) => {
-		platform.log(`MQTT Gateway Device Disconnection received. Device ID: ${client.id}`);
-		platform.notifyDisconnection(client.id);
-	});
+        if (error || isEmpty(data)) {
+          server.publish({
+            topic: client.id,
+            payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}\n`,
+            qos: 0,
+            retain: false
+          })
 
-	server.on('published', (message, client) => {
-		let rawMessage = message.payload.toString();
+          return plugin.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`))
+        }
 
-		if (message.topic === dataTopic) {
-			async.waterfall([
-				async.constant(rawMessage || '{}'),
-				async.asyncify(JSON.parse)
-			], (error, data) => {
-				if (error || isEmpty(data)) {
-					server.publish({
-						topic: client.id,
-						payload: `Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}\n`,
-						qos: 0,
-						retain: false
-					});
+        plugin.pipe(data).then(() => {
 
-					return platform.log(new Error(`Invalid data sent. Data must be a valid JSON String. Raw Message: ${rawMessage}`));
-				}
+          server.publish({
+            topic: client.id,
+            payload: `Data Received. Device ID: ${client.id}. Data: ${rawMessage}\n`,
+            qos: 0,
+            retain: false
+          })
 
-				platform.processData(client.id, rawMessage);
+          return plugin.log(JSON.stringify({
+            title: 'MQTT Gateway - Data Received',
+            device: client.id,
+            data: data
+          }))
 
-				server.publish({
-					topic: client.id,
-					payload: `Data Received. Device ID: ${client.id}. Data: ${rawMessage}\n`,
-					qos: 0,
-					retain: false
-				});
+        }).catch((err) => {
+          console.log(err)
+          plugin.logException(err)
+        })
+      })
+    } else if (message.topic === commandTopic) {
 
-				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Data Received',
-					device: client.id,
-					data: data
-				}));
-			});
-		}
-		else if (message.topic === messageTopic) {
-			async.waterfall([
-				async.constant(rawMessage || '{}'),
-				async.asyncify(JSON.parse)
-			], (error, msg) => {
-				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
-					server.publish({
-						topic: client.id,
-						payload: 'Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.\n',
-						qos: 0,
-						retain: false
-					});
+      async.waterfall([
+        async.constant(rawMessage || '{}'),
+        async.asyncify(JSON.parse)
+      ], (error, msg) => {
+        if (error || isEmpty(msg.device) || isEmpty(msg.command)) {
+          server.publish({
+            topic: client.id,
+            payload: 'Invalid message or command. Message must be a valid JSON String with "device" and "message" fields. "device" is a registered Device ID. "message" is the payload.\n',
+            qos: 0,
+            retain: false
+          })
 
-					return platform.handleException(new Error('Invalid message or command. Message must be a valid JSON String with "target" and "message" fields. "target" is a registered Device ID. "message" is the payload.'));
-				}
+          return plugin.logException(new Error('Invalid message or command. Message must be a valid JSON String with "device" and "message" fields. "device" is a registered Device ID. "message" is the payload.'))
+        }
 
-				platform.sendMessageToDevice(msg.target, msg.message);
+        plugin.relayCommand(msg.command, msg.device, msg.deviceGroup).then(() => {
+          server.publish({
+            topic: client.id,
+            payload: `Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
+            qos: qos,
+            retain: false
+          })
 
-				server.publish({
-					topic: client.id,
-					payload: `Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
-					qos: qos,
-					retain: false
-				});
+          return plugin.log(JSON.stringify({
+            title: 'MQTT Gateway - Message Received',
+            source: client.id,
+            target: msg.device,
+            message: msg
+          }))
+        }).catch((err) => {
+          console.log(err)
+          plugin.logException(err)
+        })
+      })
+    }
+  })
+})
 
-				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Message Received',
-					source: client.id,
-					target: msg.target,
-					message: msg
-				}));
-			});
-		}
-		else if (message.topic === groupMessageTopic) {
-			async.waterfall([
-				async.constant(rawMessage || '{}'),
-				async.asyncify(JSON.parse)
-			], (error, msg) => {
-				if (error || isEmpty(msg.target) || isEmpty(msg.message)) {
-					server.publish({
-						topic: client.id,
-						payload: 'Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.\n',
-						qos: 0,
-						retain: false
-					});
+plugin.on('command', (msg) => {
+  server.publish({
+    topic: msg.device,
+    payload: msg.command,
+    commandId: msg.commandId,
+    qos: qos,
+    retain: false
+  }, () => {
+    plugin.sendCommandResponse(msg.commandId, 'Command Sent').then(() => {
+      plugin.log(JSON.stringify({
+        title: 'Command Sent',
+        device: msg.device,
+        commandId: msg.commandId,
+        command: msg.command
+      }))
 
-					return platform.handleException(new Error('Invalid group message or command. Group messages must be a valid JSON String with "target" and "message" fields. "target" is a device group id or name. "message" is the payload.'));
-				}
+      setTimeout(() => {
+        plugin.emit('response.ok')
+      }, 500)
+    })
+  })
+})
 
-				platform.sendMessageToGroup(msg.target, msg.message);
-
-				server.publish({
-					topic: client.id,
-					payload: `Group Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
-					qos: qos,
-					retain: false
-				});
-
-				platform.log(JSON.stringify({
-					title: 'MQTT Gateway - Group Message Received',
-					source: client.id,
-					target: msg.target,
-					message: msg
-				}));
-			});
-		}
-	});
-});
+module.exports = plugin
