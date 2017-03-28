@@ -1,30 +1,17 @@
-FROM node
+FROM node:boron
 
 MAINTAINER Reekoh
 
-WORKDIR /home
+RUN apt-get update && apt-get install -y build-essential
 
-# copy files
-ADD . /home
+RUN mkdir -p /home/node/mqtt-gateway
+COPY . /home/node/mqtt-gateway
+
+WORKDIR /home/node/mqtt-gateway
 
 # Install dependencies
-RUN npm install
-
-# setting need environment variables
-ENV PLUGIN_ID="demo.gateway" \
-    PIPELINE="demo.gateway.pipeline" \
-    COMMAND_RELAYS="demo.relay1,demo.relay2" \
-    OUTPUT_PIPES="demo.outpipe1,demo.outpipe2" \
-    PORT="8080" \
-    KEY="" \
-    CERT="" \
-    CA="" \
-    CRL="" \
-    CONFIG="{}" \
-    OUTPUT_PIPES="" \
-    LOGGERS="" \
-    EXCEPTION_LOGGERS="" \
-    BROKER="amqp://guest:guest@172.17.0.2/"
+RUN npm install pm2 yarn -g
+RUN yarn install
 
 EXPOSE 8080
-CMD ["node", "app"]
+CMD ["pm2-docker", "--json", "app.yml"]

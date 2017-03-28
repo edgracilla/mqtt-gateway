@@ -1,0 +1,7 @@
+---
+apps:
+  - name: mqtt-gateway
+    script: app.js
+    exec_mode: cluster
+    instances: 0
+    kill_timeout: 20000

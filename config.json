@@ -24,7 +24,7 @@
   },
   "commandTopic": {
 	"type": "String",
-	"label": "Message Topic",
+	"label": "Command Topic",
 	"default": "reekoh/commands",
 	"help": "(Optional) The topic to listen to for device messages or commands. Default: reekoh/commands"
   },

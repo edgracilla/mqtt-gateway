@@ -202,10 +202,10 @@ plugin.once('ready', () => {
           return plugin.logException(new Error('Invalid message or command. Message must be a valid JSON String with "device" and "message" fields. "device" is a registered Device ID. "message" is the payload.'))
         }
 
-        plugin.relayCommand(msg.command, msg.device, msg.deviceGroup).then(() => {
+        plugin.relayCommand(msg.command, msg.target, msg.deviceGroup, msg.device).then(() => {
           server.publish({
             topic: client.id,
-            payload: `Message Received. Device ID: ${client.id}. Message: ${rawMessage}\n`,
+            payload: `Message Sent. Device ID: ${client.id}. Message: ${rawMessage}\n`,
             qos: qos,
             retain: false
           })
@@ -226,6 +226,7 @@ plugin.once('ready', () => {
 })
 
 plugin.on('command', (msg) => {
+  // console.log(msg)
   server.publish({
     topic: msg.device,
     payload: msg.command,
@@ -234,16 +235,13 @@ plugin.on('command', (msg) => {
     retain: false
   }, () => {
     plugin.sendCommandResponse(msg.commandId, 'Command Sent').then(() => {
+      plugin.emit('response.ok', msg.device)
       plugin.log(JSON.stringify({
         title: 'Command Sent',
         device: msg.device,
         commandId: msg.commandId,
         command: msg.command
       }))
-
-      setTimeout(() => {
-        plugin.emit('response.ok')
-      }, 500)
     })
   })
 })
