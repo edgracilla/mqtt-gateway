@@ -3,7 +3,6 @@ kind: Plugin
 metadata:
   name: MQTT Gateway
   description: Standard MQTT Protocol Support for the Reekoh IoT Platform. Allows hardware devices to connect to a Reekoh instance via the MQTT Protocol
-  documentation: README.md
   icon: asset/icon/reekoh200x200.png
   signupLink: https://myservice.com/signup # ??
   type: Storage
@@ -11,51 +10,7 @@ metadata:
   tags:
     - gateway
     - mqtt
-  config:
-    qos:
-      label: QOS
-      type: String
-      maxLength: 1000
-      required: false
-      enum:
-        - 0
-        - 1
-        - 2
-      default: 0
-      help: "(Optional) The QOS to be used for message exchanges. Default: 0."
-    user:
-      label: Username
-      type: String
-      maxLength: 1000
-      required: false
-      help: "(Optional) The username to use if you want to authenticate incoming traffic."
-    password:
-      label: Password
-      type: Password
-      maxLength: 1000
-      required: false
-      help: "(Optional) The password to use if you want to authenticate incoming traffic."
-    dataTopic:
-      label: Data Topic
-      type: String
-      maxLength: 1000
-      required: false
-      default: reekoh/data
-      help: "(Optional) The topic to listen to for device data. Default reekoh/data."
-    commandTopic:
-      label: Command Topic
-      type: String
-      maxLength: 1000
-      required: false
-      default: reekoh/commands
-      help: "(Optional) The topic to listen to for device messages or commands. Default: reekoh/commands."
-    authorizedTopics:
-      label: Authorized Topics
-      type: String
-      maxLength: 1000
-      required: false
-      help: "(Optional) Other, comma-separated, authorized topics the devices can subscribe from and/or publish to."
-
+    
   loadBalancing:
     method: http
     enableSticky: true
@@ -63,4 +18,48 @@ metadata:
   release:
     version: 1.0.0
     notes: path/to/RELEASENOTESv1.0.0.md # ??
-    image: path/to/docker/image # ??
+    documentation: README.md
+    config:
+      qos:
+        label: QOS
+        type: String
+        maxLength: 1000
+        required: false
+        enum:
+          - 0
+          - 1
+          - 2
+        default: 0
+        help: "(Optional) The QOS to be used for message exchanges. Default: 0."
+      user:
+        label: Username
+        type: String
+        maxLength: 1000
+        required: false
+        help: "(Optional) The username to use if you want to authenticate incoming traffic."
+      password:
+        label: Password
+        type: Password
+        maxLength: 1000
+        required: false
+        help: "(Optional) The password to use if you want to authenticate incoming traffic."
+      dataTopic:
+        label: Data Topic
+        type: String
+        maxLength: 1000
+        required: false
+        default: reekoh/data
+        help: "(Optional) The topic to listen to for device data. Default reekoh/data."
+      commandTopic:
+        label: Command Topic
+        type: String
+        maxLength: 1000
+        required: false
+        default: reekoh/commands
+        help: "(Optional) The topic to listen to for device messages or commands. Default: reekoh/commands."
+      authorizedTopics:
+        label: Authorized Topics
+        type: String
+        maxLength: 1000
+        required: false
+        help: "(Optional) Other, comma-separated, authorized topics the devices can subscribe from and/or publish to."
